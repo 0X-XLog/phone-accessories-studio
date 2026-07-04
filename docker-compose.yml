@@ -1,0 +1,64 @@
+services:
+  phone-accessories-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SUPABASE_URL: ${SUPABASE_URL}
+        SUPABASE_KEY: ${SUPABASE_KEY}
+        SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+        R2_ENDPOINT: ${R2_ENDPOINT}
+        R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+        R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+        R2_BUCKET_NAME: ${R2_BUCKET_NAME}
+        R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+        OPENAI_IMAGE_API_KEY: ${OPENAI_IMAGE_API_KEY}
+        OPENAI_IMAGE_API_BASE: ${OPENAI_IMAGE_API_BASE:-https://api.openai.com/v1}
+        IMAGE_MODEL: ${IMAGE_MODEL:-gpt-image-2}
+        TEXT_API_KEY: ${TEXT_API_KEY}
+        TEXT_API_BASE: ${TEXT_API_BASE:-https://api.b.ai/v1}
+        TEXT_MODEL: ${TEXT_MODEL:-gpt-5.2}
+        VISION_API_KEY: ${VISION_API_KEY:-${TEXT_API_KEY}}
+        VISION_API_BASE: ${VISION_API_BASE:-${TEXT_API_BASE}}
+        VISION_MODEL: ${VISION_MODEL:-gpt-5.5}
+        MIAOSHOU_APP_KEY: ${MIAOSHOU_APP_KEY}
+        MIAOSHOU_APP_SECRET: ${MIAOSHOU_APP_SECRET}
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD:-asdfGHjkl.}
+        DATABASE_URL: ${DATABASE_URL}
+    container_name: phone-accessories-studio
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3011}:3000"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - web-network
+    environment:
+      - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - R2_ENDPOINT=${R2_ENDPOINT}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+      - OPENAI_IMAGE_API_KEY=${OPENAI_IMAGE_API_KEY}
+      - OPENAI_IMAGE_API_BASE=${OPENAI_IMAGE_API_BASE:-https://api.openai.com/v1}
+      - IMAGE_MODEL=${IMAGE_MODEL:-gpt-image-2}
+      - TEXT_API_KEY=${TEXT_API_KEY}
+      - TEXT_API_BASE=${TEXT_API_BASE:-https://api.b.ai/v1}
+      - TEXT_MODEL=${TEXT_MODEL:-gpt-5.2}
+      - VISION_API_KEY=${VISION_API_KEY:-${TEXT_API_KEY}}
+      - VISION_API_BASE=${VISION_API_BASE:-${TEXT_API_BASE}}
+      - VISION_MODEL=${VISION_MODEL:-gpt-4o}
+      - MIAOSHOU_APP_KEY=${MIAOSHOU_APP_KEY}
+      - MIAOSHOU_APP_SECRET=${MIAOSHOU_APP_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-asdfGHjkl.}
+      - DATABASE_URL=${DATABASE_URL}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  web-network:
+    external: true
