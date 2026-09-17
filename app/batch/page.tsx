@@ -23,7 +23,10 @@ export default function BatchPage() {
   const [useAiImages, setUseAiImages] = useState(true);
   const [titleField, setTitleField] = useState('title_tiktok_en');
   const [rate, setRate] = useState('0.65');
-  const [markup, setMarkup] = useState('2.5');
+  const [profitRate, setProfitRate] = useState('25');
+  const [firstLegPerKg, setFirstLegPerKg] = useState('15');
+  const [lastMileCny, setLastMileCny] = useState('8');
+  const [defaultWeightG, setDefaultWeightG] = useState('200');
 
   const load = async () => {
     setLoading(true);
@@ -57,7 +60,12 @@ export default function BatchPage() {
       const res = await fetch('/api/tiktok/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productIds: [...selected], useAiImages, titleField, rate: Number(rate), markup: Number(markup) }),
+        body: JSON.stringify({
+          productIds: [...selected], useAiImages, titleField,
+          rate: Number(rate), profitRate: Number(profitRate) / 100,
+          firstLegPerKg: Number(firstLegPerKg), lastMileCny: Number(lastMileCny),
+          defaultWeightG: Number(defaultWeightG),
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -70,7 +78,7 @@ export default function BatchPage() {
       a.download = `tiktok-import-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
-      setMsg(`✅ 已导出 ${selected.size} 个商品。到 TikTok 卖家中心 → 商品 → 批量导入 上传此文件；价格列请在 Excel 里补填。`);
+      setMsg(`✅ 已导出 ${selected.size} 个商品。价格已按「成本+运费反推」模型自动计算（有成本价的商品），可到卖家中心批量导入。`);
     } catch (e) {
       setMsg('导出失败: ' + (e instanceof Error ? e.message : '未知错误'));
     } finally {
@@ -122,19 +130,21 @@ export default function BatchPage() {
               />
               优先使用 AI 增强图
             </label>
-            <label className="text-gray-600">汇率(CNY→MYR):</label>
-            <input
-              type="number" step="0.01" min="0" value={rate}
-              onChange={(e) => setRate(e.target.value)}
-              className="w-20 px-2 py-1.5 rounded-lg border border-gray-300 text-sm"
-            />
-            <label className="text-gray-600">加价倍数:</label>
-            <input
-              type="number" step="0.1" min="0" value={markup}
-              onChange={(e) => setMarkup(e.target.value)}
-              className="w-20 px-2 py-1.5 rounded-lg border border-gray-300 text-sm"
-            />
-            <span className="text-xs text-gray-400">建议价 = 1688成本 × 汇率 × 倍数</span>
+            <label className="text-gray-600">目标利润率%:</label>
+            <input type="number" step="1" min="0" max="90" value={profitRate}
+              onChange={(e) => setProfitRate(e.target.value)} className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
+            <label className="text-gray-600">头程元/kg:</label>
+            <input type="number" step="0.5" min="0" value={firstLegPerKg}
+              onChange={(e) => setFirstLegPerKg(e.target.value)} className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
+            <label className="text-gray-600">尾程元/件:</label>
+            <input type="number" step="0.5" min="0" value={lastMileCny}
+              onChange={(e) => setLastMileCny(e.target.value)} className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
+            <label className="text-gray-600">重量g:</label>
+            <input type="number" step="10" min="1" value={defaultWeightG}
+              onChange={(e) => setDefaultWeightG(e.target.value)} className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
+            <label className="text-gray-600">汇率:</label>
+            <input type="number" step="0.01" min="0" value={rate}
+              onChange={(e) => setRate(e.target.value)} className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
           </div>
 
           {loading ? (
@@ -185,7 +195,7 @@ export default function BatchPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-800 leading-relaxed">
           <p className="font-medium mb-1">使用说明：</p>
           <p>1. 勾选商品导出 Excel（一行一个商品，图片为 R2 公开链接，多图用 | 分隔）</p>
-          <p>2. 打开 Excel 补填【Price】列（其他列已自动填好）</p>
+          <p>2. 零售价自动按「(成本+头程+尾程) ÷ (1−扣点26.48%−利润率) × 汇率」计算，参数在上面可调（无成本价的商品留空手填）</p>
           <p>3. TikTok 卖家中心 → 商品 → 批量导入 → 上传文件 → 系统生成草稿 → 逐个检查发布</p>
           <p>4. 拿到官方模板后发我一份，我把列名对齐成官方格式，直接上传即可</p>
         </div>

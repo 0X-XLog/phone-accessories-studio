@@ -61,9 +61,21 @@ export async function POST(request: NextRequest) {
     const productIds: string[] = Array.isArray(body.productIds) ? body.productIds : [];
     const useAiImages: boolean = !!body.useAiImages;
     const titleField: string = body.titleField || 'title_tiktok_en';
-    // 建议零售价 = 1688成本价(CNY) × 汇率 × 加价倍数；可在页面调
-    const rate: number = Number(body.rate) > 0 ? Number(body.rate) : 0.65;
-    const markup: number = Number(body.markup) > 0 ? Number(body.markup) : 2.5;
+    // 定价模型（成本反推）：
+    //   售价(CNY) = (采购成本 + 头程运费 + 尾程运费) / (1 − 平台总扣点% − 目标利润率%)
+    //   建议零售价(MYR) = 售价(CNY) × 汇率
+    const profitRate: number = Number(body.profitRate) || 0.25;   // 目标利润率（按售价）
+    const firstLegPerKg: number = Number(body.firstLegPerKg) || 15; // 头程运费 元/kg
+    const lastMileCny: number = Number(body.lastMileCny) || 8;      // 尾程运费 元/件
+    const defaultWeightG: number = Number(body.defaultWeightG) || 200; // 默认包裹重量 g
+    const rate: number = Number(body.rate) || 0.65;               // CNY→MYR 汇率
+    // 平台扣点（占售价%）：佣金/交易手续费/增值税/提现/BCP活动
+    const feePct: number = [body.platformPct ?? 8.46, body.txnPct ?? 3.78, body.vatPct ?? 10, body.withdrawPct ?? 1, body.bcpPct ?? 3.24]
+      .reduce((sum, v) => sum + (Number(v) || 0), 0);
+    const denominator = 1 - feePct / 100 - profitRate;
+    if (denominator <= 0.05) {
+      return NextResponse.json({ error: `扣点+利润率合计 ${(feePct / 100 * 100 + profitRate * 100).toFixed(2)}% 过高，无法定价（需 < 95%）` }, { status: 400 });
+    }
     if (productIds.length === 0) {
       return NextResponse.json({ error: '请先勾选要导出的商品' }, { status: 400 });
     }
@@ -108,13 +120,16 @@ export async function POST(request: NextRequest) {
       row.getCell(3).value = title;
       row.getCell(4).value = buildDescriptionHtml(product);
       images.forEach((url, i) => { row.getCell(5 + i).value = url; }); // cols 5..13 主图+图2-9
-      row.getCell(19).value = 200; // 包裹重量(g)
-      row.getCell(20).value = 20;  // 长(cm)
-      row.getCell(21).value = 15;  // 宽(cm)
-      row.getCell(22).value = 5;   // 高(cm)
-      // col23 零售价：有成本价则按 汇率×倍数 生成建议价，否则留空手填
+      // col19-22 包裹重量尺寸（重量同时参与头程运费计算）
+      row.getCell(19).value = defaultWeightG;
+      row.getCell(20).value = 20;
+      row.getCell(21).value = 15;
+      row.getCell(22).value = 5;
+      // col23 零售价：有成本价则按定价模型反推，否则留空手填
       if ((product.cost_price || 0) > 0) {
-        row.getCell(23).value = Math.round(product.cost_price * rate * markup * 100) / 100;
+        const firstLegCny = (defaultWeightG / 1000) * firstLegPerKg;
+        const priceCny = (product.cost_price + firstLegCny + lastMileCny) / denominator;
+        row.getCell(23).value = Math.round(priceCny * rate * 100) / 100;
       }
       row.getCell(24).value = product.stock ?? 99;  // 数量
       row.getCell(25).value = `PA-${product.id.slice(0, 8).toUpperCase()}`; // 商家 SKU
