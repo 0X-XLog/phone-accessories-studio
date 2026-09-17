@@ -104,12 +104,24 @@ export async function POST(request: NextRequest) {
           .filter(g => g.generated_image_url)
           .map(g => [g.original_image_url, g.generated_image_url])
       );
+      // TikTok 导出统一用 R2 链接（公网可达、无 1688 防盗链风险）
       const baseImages = product.original_images || [];
-      const sources = (product.original_image_sources?.length ? product.original_image_sources : baseImages) || [];
-      const images = (useAiImages
+      const sources = (baseImages.length ? baseImages : product.original_image_sources) || [];
+      let images = (useAiImages
         ? sources.map((src: string, i: number) => (baseImages[i] ? genMap.get(baseImages[i]) || src : src))
         : sources
-      ).slice(0, 9);
+      );
+
+      // 卖点图/场景图并入图集空位（TikTok 批量导入没有详情图列，图集即详情）
+      if (body.includeSellingPoints !== false) {
+        const seen = new Set(images);
+        const extra = getImagesByProductId(product.id)
+          .filter(g => g.generated_image_url && (g.type === 'selling_point' || g.type === 'scene'))
+          .map(g => g.generated_image_url)
+          .filter(u => !seen.has(u));
+        images = [...images, ...extra];
+      }
+      images = images.slice(0, 9);
 
       const title = titleField !== 'name'
         ? (product as unknown as Record<string, string>)[titleField] || product.name

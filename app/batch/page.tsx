@@ -21,6 +21,7 @@ export default function BatchPage() {
   const [exporting, setExporting] = useState(false);
   const [msg, setMsg] = useState('');
   const [useAiImages, setUseAiImages] = useState(true);
+  const [includeSellingPoints, setIncludeSellingPoints] = useState(true);
   const [titleField, setTitleField] = useState('title_tiktok_en');
   const [rate, setRate] = useState('0.65');
   const [profitRate, setProfitRate] = useState('25');
@@ -61,7 +62,7 @@ export default function BatchPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productIds: [...selected], useAiImages, titleField,
+          productIds: [...selected], useAiImages, titleField, includeSellingPoints,
           rate: Number(rate), profitRate: Number(profitRate) / 100,
           firstLegPerKg: Number(firstLegPerKg), lastMileCny: Number(lastMileCny),
           defaultWeightG: Number(defaultWeightG),
@@ -130,6 +131,14 @@ export default function BatchPage() {
               />
               优先使用 AI 增强图
             </label>
+            <label className="flex items-center gap-1.5 text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox" checked={includeSellingPoints}
+                onChange={(e) => setIncludeSellingPoints(e.target.checked)}
+                className="w-4 h-4 accent-blue-500"
+              />
+              卖点图并入图集（补足9格）
+            </label>
             <label className="text-gray-600">目标利润率%:</label>
             <input type="number" step="1" min="0" max="90" value={profitRate}
               onChange={(e) => setProfitRate(e.target.value)} className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
@@ -194,7 +203,7 @@ export default function BatchPage() {
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-800 leading-relaxed">
           <p className="font-medium mb-1">使用说明：</p>
-          <p>1. 勾选商品导出 Excel（一行一个商品，图片为 R2 公开链接，多图用 | 分隔）</p>
+          <p>1. 勾选商品导出官方模板 Excel（一行一个商品；主图+卖点图自动填入 9 格图集，全部为 R2 公开链接）</p>
           <p>2. 零售价自动按「(成本+头程) ÷ (1−扣点26.48%−利润率) × 汇率」计算（尾程默认买家承担不计入；无成本价的商品留空手填）</p>
           <p>3. TikTok 卖家中心 → 商品 → 批量导入 → 上传文件 → 系统生成草稿 → 逐个检查发布</p>
           <p>4. 拿到官方模板后发我一份，我把列名对齐成官方格式，直接上传即可</p>
