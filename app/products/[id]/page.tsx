@@ -128,6 +128,7 @@ export default function ProductDetailPage() {
   const [generatingDesc, setGeneratingDesc] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
   const [imageProgress, setImageProgress] = useState({ current: 0, total: 0 });
+  const [enhanceMainOnly, setEnhanceMainOnly] = useState(true);
   const [error, setError] = useState('');
   const [msSyncing, setMsSyncing] = useState(false);
   const [msSyncSuccess, setMsSyncSuccess] = useState(false);
@@ -540,19 +541,24 @@ export default function ProductDetailPage() {
 
   const handleEnhanceAllImages = async () => {
     if (!product) return;
-    const allImages = [...(product.original_images || []), ...(product.description_images || [])];
+    const mainImages = product.original_images || [];
+    const descImages = product.description_images || [];
+    const allImages = enhanceMainOnly ? mainImages : [...mainImages, ...descImages];
     if (!allImages.length) return;
     setGeneratingImages(true);
     setError('');
-    const images = allImages;
-    // Skip images that already have generated versions
+    // Skip images that already have generated versions (进度可续：刷新/中断后重新点击，已完成的自动跳过)
     const alreadyEnhanced = new Set(generatedImages.map(img => img.original_image_url));
-    const pendingImages = images.filter(url => !alreadyEnhanced.has(url));
+    const doneCount = allImages.filter(url => alreadyEnhanced.has(url)).length;
+    const pendingImages = allImages.filter(url => !alreadyEnhanced.has(url));
 
     if (pendingImages.length === 0) {
-      setError('All images already enhanced!');
+      setError('全部图片都已完成增强，无需重做');
       setGeneratingImages(false);
       return;
+    }
+    if (doneCount > 0) {
+      setError(`已自动跳过 ${doneCount} 张完成图，继续处理剩余 ${pendingImages.length} 张…`);
     }
 
     setImageProgress({ current: 0, total: pendingImages.length });
@@ -587,11 +593,11 @@ export default function ProductDetailPage() {
       }
     }
 
-    const alreadyCount = images.length - pendingImages.length;
+    const alreadyCount = allImages.length - pendingImages.length;
     if (failCount > 0) {
-      setError(`${successCount}/${pendingImages.length} processed, ${failCount} failed (${alreadyCount} already done before)`);
+      setError(`本轮完成 ${successCount}/${pendingImages.length}，失败 ${failCount} 张。失败的稍后重新点「增强」即可续跑，已完成的会自动跳过${alreadyCount > 0 ? `（此前已完成 ${alreadyCount} 张）` : ''}`);
     } else {
-      setError(`${pendingImages.length} images enhanced (${alreadyCount} already done before)`);
+      setError(`全部完成 ✅ 本轮增强 ${pendingImages.length} 张${alreadyCount > 0 ? `（此前已完成 ${alreadyCount} 张，自动跳过）` : ''}`);
     }
     setGeneratingImages(false);
     setImageProgress({ current: 0, total: 0 });
@@ -1622,9 +1628,18 @@ export default function ProductDetailPage() {
           <Wand2 className="w-4 h-4 text-purple-500" />
           AI Image Enhancement
         </h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Enhance all original images to HD quality, remove Chinese text and watermarks. Each image will be processed individually.
+        <p className="text-sm text-gray-500 mb-3">
+          AI 高清增强、去中文水印。中断/刷新后重新点击即可<strong>续跑</strong>（已完成的自动跳过，不会重做）。
         </p>
+        <label className="flex items-center gap-2 text-sm text-gray-700 mb-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={enhanceMainOnly}
+            onChange={(e) => setEnhanceMainOnly(e.target.checked)}
+            className="w-4 h-4 accent-purple-500"
+          />
+          只增强主图（推荐：更快更省，主图 {(product.original_images || []).length} 张 / 详情图 {(product.description_images || []).length} 张）
+        </label>
         <button
           onClick={handleEnhanceAllImages}
           disabled={generatingImages || !((product.original_images || []).length || (product.description_images || []).length)}

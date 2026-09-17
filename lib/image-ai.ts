@@ -81,7 +81,7 @@ export async function editImage(options: EditImageOptions): Promise<{ b64Json: s
         method: 'POST',
         headers: { Authorization: `Bearer ${IMAGE_API_KEY}` },
         body: form,
-        signal: AbortSignal.timeout(300000),
+        signal: AbortSignal.timeout(120000),
       });
 
       if (!response.ok) {
