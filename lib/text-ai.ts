@@ -46,11 +46,11 @@ export async function generateText(options: GenerateTextOptions): Promise<string
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      // Vision mode: download up to 5 images as base64 data URLs
+      // Vision mode: download up to 3 images as base64 data URLs (fewer = faster + fewer relay timeouts)
       let content: string | Array<Record<string, unknown>> = prompt;
       if (images && images.length > 0) {
         const results = await Promise.allSettled(
-          images.slice(0, 5).map(url => imageUrlToDataUrl(url))
+          images.slice(0, 3).map(url => imageUrlToDataUrl(url))
         );
         const validImages = results
           .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled' && r.value !== null)

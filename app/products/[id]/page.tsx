@@ -421,7 +421,7 @@ export default function ProductDetailPage() {
           material: product.material,
           specs: product.specs,
           sellingPoints: product.selling_points,
-          images: product.original_images,
+          images: (product.original_images || []).slice(0, 3),
         }),
       });
       if (!res.ok) {
