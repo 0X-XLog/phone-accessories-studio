@@ -135,12 +135,36 @@ function initTables(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_pa_generated_images_product ON pa_generated_images(product_id);
     CREATE INDEX IF NOT EXISTS idx_pa_generation_history_product ON pa_generation_history(product_id);
     CREATE INDEX IF NOT EXISTS idx_pa_selling_points_category ON pa_selling_points(category);
+
+    CREATE TABLE IF NOT EXISTS pa_tiktok_shops (
+      id TEXT PRIMARY KEY,
+      shop_id TEXT DEFAULT '',
+      shop_name TEXT DEFAULT '',
+      site TEXT DEFAULT '',
+      open_id TEXT DEFAULT '',
+      access_token TEXT DEFAULT '',
+      access_expires_at TEXT DEFAULT '',
+      refresh_token TEXT DEFAULT '',
+      refresh_expires_at TEXT DEFAULT '',
+      scopes TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'active',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pa_oauth_states (
+      state TEXT PRIMARY KEY,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrate: add new columns to existing databases (safe no-op if column exists)
   try { db.exec("ALTER TABLE pa_products ADD COLUMN source TEXT DEFAULT ''"); } catch { /* column exists */ }
   try { db.exec("ALTER TABLE pa_products ADD COLUMN ms_detail_id INTEGER"); } catch { /* column exists */ }
   try { db.exec("ALTER TABLE pa_products ADD COLUMN description_images TEXT DEFAULT '[]'"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE pa_products ADD COLUMN original_image_sources TEXT DEFAULT '[]'"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE pa_products ADD COLUMN desc_image_sources TEXT DEFAULT '[]'"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE pa_products ADD COLUMN original_notes_html TEXT DEFAULT ''"); } catch { /* column exists */ }
 }
 
 export function generateId(): string {
@@ -416,4 +440,78 @@ export function getStats() {
     imageCount: imageCountRow.count,
     recentProducts: parseRows(recentRows),
   };
+}
+
+// ============ TikTok Shops & OAuth states ============
+
+export interface TiktokShop {
+  id: string;
+  shop_id: string;
+  shop_name: string;
+  site: string;
+  open_id: string;
+  access_token: string;
+  access_expires_at: string;
+  refresh_token: string;
+  refresh_expires_at: string;
+  scopes: string[];
+  status: string;
+  updated_at: string;
+}
+
+function parseTiktokRow(row: Record<string, unknown>): TiktokShop {
+  const shop = parseRow<Record<string, unknown>>(row) as unknown as TiktokShop;
+  if (typeof shop.scopes === 'string') {
+    try { shop.scopes = JSON.parse(shop.scopes); } catch { shop.scopes = []; }
+  }
+  return shop;
+}
+
+export function upsertTiktokShop(token: {
+  openId: string; accessToken: string; accessExpiresAt: string;
+  refreshToken: string; refreshExpiresAt: string; scopes: string[];
+  shopId?: string; shopName?: string;
+}): TiktokShop {
+  const db = getDb();
+  const existing = (token.openId
+    ? db.prepare('SELECT * FROM pa_tiktok_shops WHERE open_id = ?').get(token.openId)
+    : undefined) as Record<string, unknown> | undefined;
+  const id = existing ? (existing.id as string) : generateId();
+
+  if (existing) {
+    db.prepare(`UPDATE pa_tiktok_shops SET access_token=?, access_expires_at=?, refresh_token=?,
+      refresh_expires_at=?, scopes=?, shop_id=?, shop_name=?, status='active', updated_at=datetime('now')
+      WHERE id=?`).run(
+      token.accessToken, token.accessExpiresAt, token.refreshToken,
+      token.refreshExpiresAt, JSON.stringify(token.scopes), token.shopId || '', token.shopName || '', id
+    );
+  } else {
+    db.prepare(`INSERT INTO pa_tiktok_shops (id, shop_id, shop_name, open_id, access_token,
+      access_expires_at, refresh_token, refresh_expires_at, scopes)
+      VALUES (?,?,?,?,?,?,?,?,?)`).run(
+      id, token.shopId || '', token.shopName || '', token.openId, token.accessToken,
+      token.accessExpiresAt, token.refreshToken, token.refreshExpiresAt, JSON.stringify(token.scopes)
+    );
+  }
+  const row = db.prepare('SELECT * FROM pa_tiktok_shops WHERE id = ?').get(id) as Record<string, unknown>;
+  return parseTiktokRow(row);
+}
+
+export function getTiktokShops(): TiktokShop[] {
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM pa_tiktok_shops ORDER BY created_at DESC').all() as Record<string, unknown>[];
+  return rows.map(parseTiktokRow);
+}
+
+export function createOAuthState(state: string): void {
+  const db = getDb();
+  db.prepare('INSERT INTO pa_oauth_states (state) VALUES (?)').run(state);
+  db.prepare("DELETE FROM pa_oauth_states WHERE created_at < datetime('now', '-1 hour')").run();
+}
+
+export function consumeOAuthState(state: string): boolean {
+  const db = getDb();
+  const row = db.prepare('SELECT state FROM pa_oauth_states WHERE state = ? AND created_at >= datetime(\'now\', \'-1 hour\')').get(state);
+  if (row) db.prepare('DELETE FROM pa_oauth_states WHERE state = ?').run(state);
+  return !!row;
 }
