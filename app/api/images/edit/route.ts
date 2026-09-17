@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { sourceImageBuffer, sourceImageUrl, preset, customPrompt, productId } = body;
+    const { sourceImageBuffer, sourceImageUrl, preset, customPrompt, productId, quality } = body;
 
     if (!sourceImageUrl) {
       return NextResponse.json({ error: 'No source image URL provided' }, { status: 400 });
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call OpenAI image edit
-    const { b64Json } = await editImage({ imageBuffer, prompt, size });
+    const { b64Json } = await editImage({ imageBuffer, prompt, size, quality });
 
     // Upload to R2
     const pngBuffer = Buffer.from(b64Json, 'base64');

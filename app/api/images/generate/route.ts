@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   let productId = '';
   try {
-    const { productId: pid, originalImageUrl, type, subType, customPrompt, category, sourceImageBuffer } = await request.json();
+    const { productId: pid, originalImageUrl, type, subType, customPrompt, category, sourceImageBuffer, quality } = await request.json();
     productId = pid;
     console.log('[IMG-GEN] type:', type, '| productId:', productId, '| url:', originalImageUrl?.slice(0, 80));
 
@@ -116,7 +116,7 @@ Output the enhanced image only.`;
 
     // Call OpenAI
     console.log('[IMG-GEN] Calling image API, prompt length:', prompt.length);
-    const { b64Json } = await editImage({ imageBuffer, prompt, size });
+    const { b64Json } = await editImage({ imageBuffer, prompt, size, quality });
     console.log('[IMG-GEN] Image API returned, b64Json length:', b64Json.length);
 
     // Upload to R2

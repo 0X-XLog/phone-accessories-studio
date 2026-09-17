@@ -11,6 +11,7 @@ interface EditImageOptions {
   imageBuffer: Buffer;
   prompt: string;
   size?: '1024x1024' | '1536x1024' | '1024x1536';
+  quality?: string; // low / medium / high — low 快约 40%，high 最精细
 }
 
 function isRetryableError(err: Error): boolean {
@@ -53,6 +54,7 @@ async function extractImageBase64(data: unknown): Promise<string> {
 
 export async function editImage(options: EditImageOptions): Promise<{ b64Json: string }> {
   const { imageBuffer, prompt, size = '1024x1024' } = options;
+  const quality = options.quality || process.env.IMAGE_QUALITY || 'medium';
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 5000;
 
@@ -74,6 +76,7 @@ export async function editImage(options: EditImageOptions): Promise<{ b64Json: s
       form.append('model', IMAGE_MODEL);
       form.append('prompt', prompt);
       form.append('size', size);
+      form.append('quality', quality);
       form.append('n', '1');
       form.append('image', new Blob([new Uint8Array(imageBuffer)], { type: 'image/png' }), 'input.png');
 

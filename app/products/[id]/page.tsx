@@ -129,6 +129,7 @@ export default function ProductDetailPage() {
   const [generatingImages, setGeneratingImages] = useState(false);
   const [imageProgress, setImageProgress] = useState({ current: 0, total: 0 });
   const [enhanceMainOnly, setEnhanceMainOnly] = useState(true);
+  const [enhanceQuality, setEnhanceQuality] = useState('medium');
   const [error, setError] = useState('');
   const [msSyncing, setMsSyncing] = useState(false);
   const [msSyncSuccess, setMsSyncSuccess] = useState(false);
@@ -576,6 +577,7 @@ export default function ProductDetailPage() {
             type: 'enhance',
             originalImageUrl: pendingImages[i],
             category: product.category,
+            quality: enhanceQuality,
           }),
         });
         if (!res.ok) {
@@ -1640,6 +1642,23 @@ export default function ProductDetailPage() {
           />
           只增强主图（推荐：更快更省，主图 {(product.original_images || []).length} 张 / 详情图 {(product.description_images || []).length} 张）
         </label>
+        <div className="flex items-center gap-2 text-sm text-gray-700 mb-3">
+          <span>画质/速度:</span>
+          {[
+            { v: 'low', label: '低（最快 ~35秒/张）' },
+            { v: 'medium', label: '中（均衡 ~50秒/张）' },
+            { v: 'high', label: '高（最精 ~70秒+/张）' },
+          ].map(opt => (
+            <label key={opt.v} className="flex items-center gap-1 cursor-pointer select-none">
+              <input
+                type="radio" name="enhanceQuality" checked={enhanceQuality === opt.v}
+                onChange={() => setEnhanceQuality(opt.v)}
+                className="w-4 h-4 accent-purple-500"
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
         <button
           onClick={handleEnhanceAllImages}
           disabled={generatingImages || !((product.original_images || []).length || (product.description_images || []).length)}
