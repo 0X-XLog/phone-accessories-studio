@@ -133,6 +133,7 @@ export default function ProductDetailPage() {
   const [msSyncSuccess, setMsSyncSuccess] = useState(false);
   const [msSyncMsg, setMsSyncMsg] = useState('');
   const [msSyncTitleField, setMsSyncTitleField] = useState('name');
+  const [msUseAiImages, setMsUseAiImages] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadAll = useCallback(async () => {
@@ -265,9 +266,22 @@ export default function ProductDetailPage() {
     setMsSyncSuccess(false);
     setMsSyncMsg('Looking up TikTok collect box...');
     try {
-      // Use original alicdn image sources for Miaoshou (ERP only renders alicdn URLs, not R2)
-      const sources = product.original_image_sources || product.original_images || [];
-      const descSources = product.desc_image_sources || product.description_images || [];
+      // Base lists are position-aligned pairs: R2 image (imported) <-> alicdn source (1688 original)
+      // When AI-sync is on, replace each position with its AI-generated version if one exists,
+      // falling back to the alicdn source (Miaoshou only renders alicdn/R2 public URLs).
+      const genMap = new Map(
+        generatedImages.filter((g) => g.generated_image_url).map((g) => [g.original_image_url, g.generated_image_url])
+      );
+      const withAi = (sources: string[], r2List: string[]) =>
+        msUseAiImages ? sources.map((src, i) => genMap.get(r2List[i] || '') || src) : sources;
+      const sources = withAi(
+        product.original_image_sources || product.original_images || [],
+        product.original_images || []
+      );
+      const descSources = withAi(
+        product.desc_image_sources || product.description_images || [],
+        product.description_images || []
+      );
 
       // Build description HTML from description_long + bullets + desc images (R2 URLs)
       const descParts: string[] = [];
@@ -1790,6 +1804,15 @@ export default function ProductDetailPage() {
                 {(product as unknown as Record<string, string>)[msSyncTitleField] || '(empty)'}
               </span>
             )}
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={msUseAiImages}
+                onChange={(e) => { setMsUseAiImages(e.target.checked); setMsSyncMsg(''); setMsSyncSuccess(false); }}
+                className="w-4 h-4 accent-orange-500"
+              />
+              使用 AI 增强图（<span className="text-orange-600">{generatedImages.filter((g) => g.generated_image_url).length}</span> 张）
+            </label>
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
             <button
@@ -1831,7 +1854,7 @@ export default function ProductDetailPage() {
             {msSyncing ? 'Syncing...' : msSyncSuccess ? 'Synced!' : 'Sync to Miaoshou'}
           </button>
           <p className="text-xs text-gray-500 mt-3 leading-relaxed">
-            Syncs title &amp; description to Miaoshou TikTok collect box. Images need to be uploaded manually (ERP only renders alicdn images).
+            Syncs title &amp; description to Miaoshou TikTok collect box. 勾选"使用 AI 增强图"后，已生成 AI 图的图片位会用 R2 链接回传（未生成的仍用 1688 原图）。若妙手里图片显示异常，请关闭此选项并手动上传 ZIP 内的图片。
           </p>
         </div>
       )}
