@@ -62,11 +62,12 @@ export async function POST(request: NextRequest) {
     const useAiImages: boolean = !!body.useAiImages;
     const titleField: string = body.titleField || 'title_tiktok_en';
     // 定价模型（成本反推）：
-    //   售价(CNY) = (采购成本 + 头程运费 + 尾程运费) / (1 − 平台总扣点% − 目标利润率%)
+    //   售价(CNY) = (采购成本 + 头程运费 + 尾程运费[如有]) / (1 − 平台总扣点% − 目标利润率%)
     //   建议零售价(MYR) = 售价(CNY) × 汇率
+    // 尾程默认 0：买家承担运费时不计入售价
     const profitRate: number = Number(body.profitRate) || 0.25;   // 目标利润率（按售价）
     const firstLegPerKg: number = Number(body.firstLegPerKg) || 15; // 头程运费 元/kg
-    const lastMileCny: number = Number(body.lastMileCny) || 8;      // 尾程运费 元/件
+    const lastMileCny: number = Number(body.lastMileCny) || 0;      // 尾程运费 元/件（默认0：买家承担时不计入售价）
     const defaultWeightG: number = Number(body.defaultWeightG) || 200; // 默认包裹重量 g
     const rate: number = Number(body.rate) || 0.65;               // CNY→MYR 汇率
     // 平台扣点（占售价%）：佣金/交易手续费/增值税/提现/BCP活动
