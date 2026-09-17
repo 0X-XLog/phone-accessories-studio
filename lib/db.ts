@@ -515,3 +515,13 @@ export function consumeOAuthState(state: string): boolean {
   if (row) db.prepare('DELETE FROM pa_oauth_states WHERE state = ?').run(state);
   return !!row;
 }
+
+export function updateTiktokShopTokens(shopDbId: string, t: {
+  accessToken: string; accessExpiresAt: string; refreshToken: string; refreshExpiresAt: string; scopes: string[];
+}): void {
+  const db = getDb();
+  db.prepare(`UPDATE pa_tiktok_shops SET access_token=?, access_expires_at=?, refresh_token=?,
+    refresh_expires_at=?, scopes=?, status='active', updated_at=datetime('now') WHERE id=?`).run(
+    t.accessToken, t.accessExpiresAt, t.refreshToken, t.refreshExpiresAt, JSON.stringify(t.scopes), shopDbId
+  );
+}

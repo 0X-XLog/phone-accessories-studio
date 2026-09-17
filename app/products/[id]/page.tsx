@@ -134,6 +134,11 @@ export default function ProductDetailPage() {
   const [msSyncMsg, setMsSyncMsg] = useState('');
   const [msSyncTitleField, setMsSyncTitleField] = useState('name');
   const [msUseAiImages, setMsUseAiImages] = useState(false);
+  const [ttPrice, setTtPrice] = useState('');
+  const [ttStock, setTtStock] = useState('99');
+  const [ttPushing, setTtPushing] = useState(false);
+  const [ttPushOk, setTtPushOk] = useState(false);
+  const [ttPushMsg, setTtPushMsg] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadAll = useCallback(async () => {
@@ -360,6 +365,41 @@ export default function ProductDetailPage() {
       setMsSyncMsg('Sync failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setMsSyncing(false);
+    }
+  };
+
+  const handlePushToTiktok = async () => {
+    if (!product) return;
+    if (!ttPrice || Number(ttPrice) <= 0) {
+      setTtPushOk(false);
+      setTtPushMsg('请先填写售价');
+      return;
+    }
+    setTtPushing(true);
+    setTtPushMsg('正在上传图片并创建 TikTok 草稿…');
+    try {
+      const res = await fetch('/api/tiktok/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product.id,
+          titleField: msSyncTitleField,
+          price: ttPrice,
+          stock: ttStock,
+          useAiImages: msUseAiImages,
+          publish: false,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setTtPushOk(true);
+      setTtPushMsg(`草稿已创建（商品ID: ${data.tiktok_product_id}，${data.imageCount} 张图）— 请到 TikTok 卖家中心检查类目/属性后发布`);
+      router.refresh();
+    } catch (err) {
+      setTtPushOk(false);
+      setTtPushMsg('推送失败: ' + (err instanceof Error ? err.message : '未知错误'));
+    } finally {
+      setTtPushing(false);
     }
   };
 
@@ -1858,6 +1898,61 @@ export default function ProductDetailPage() {
           </p>
         </div>
       )}
+
+      {/* Push to TikTok Shop（官方 API 直连） */}
+      {product.status === 'generated' || product.description_long ? (
+        <div className={`rounded-xl border p-6 mt-6 ${ttPushOk ? 'bg-green-50 border-green-200' : ttPushMsg && !ttPushOk ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'}`}>
+          <h3 className="font-medium text-gray-900 mb-1">刊登到 TikTok Shop（草稿）</h3>
+          <p className="text-xs text-gray-500 mb-4">创建草稿到你的 TikTok 卖家中心（不直接发布），确认类目/属性无误后手动发布。授权管理见侧边栏「TikTok 店铺」。</p>
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <label className="text-sm text-gray-600">标题:</label>
+            <select
+              value={msSyncTitleField}
+              onChange={(e) => setMsSyncTitleField(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm bg-white"
+            >
+              <option value="name">中文原标题</option>
+              {product.title_tiktok_en && <option value="title_tiktok_en">TikTok English</option>}
+              {product.title_tiktok_ms && <option value="title_tiktok_ms">TikTok Malay</option>}
+              {product.title_tiktok_zh && <option value="title_tiktok_zh">TikTok 中文</option>}
+              {product.title_tiktok_th && <option value="title_tiktok_th">TikTok ไทย</option>}
+            </select>
+            <label className="text-sm text-gray-600">售价:</label>
+            <input
+              type="number" step="0.01" min="0" value={ttPrice}
+              onChange={(e) => setTtPrice(e.target.value)}
+              placeholder="如 19.90"
+              className="w-28 px-3 py-1.5 rounded-lg border border-gray-300 text-sm"
+            />
+            <label className="text-sm text-gray-600">库存:</label>
+            <input
+              type="number" min="1" value={ttStock}
+              onChange={(e) => setTtStock(e.target.value)}
+              className="w-20 px-3 py-1.5 rounded-lg border border-gray-300 text-sm"
+            />
+            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox" checked={msUseAiImages}
+                onChange={(e) => setMsUseAiImages(e.target.checked)}
+                className="w-4 h-4 accent-black"
+              />
+              使用 AI 增强图
+            </label>
+          </div>
+          {ttPushMsg && (
+            <div className={`mb-3 px-4 py-3 rounded-lg text-sm font-medium ${ttPushOk ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>
+              {ttPushMsg}
+            </div>
+          )}
+          <button
+            onClick={handlePushToTiktok}
+            disabled={ttPushing}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-black hover:bg-gray-800 disabled:bg-gray-300 text-white transition-colors"
+          >
+            {ttPushing ? '推送中（上传图片约需 1~2 分钟）…' : '创建 TikTok 草稿'}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 

@@ -8,12 +8,14 @@ import {
   Image as ImageIcon,
   Layers,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/products/new', label: 'New Product', icon: PlusCircle },
   { href: '/batch', label: 'Batch Process', icon: Layers },
+  { href: '/tiktok', label: 'TikTok 店铺', icon: ShieldCheck },
 ];
 
 export default function Sidebar() {
