@@ -45,20 +45,28 @@ export async function POST(request: NextRequest) {
 
 1. ALWAYS: Enhance to HD quality — improve sharpness, brightness, contrast, color vibrancy. Professional lighting.
 
-2. If the image has Chinese text, watermarks, or overlay graphics:
-   - Remove ALL of them cleanly
-   - If any text was a useful selling point label/badge (e.g. "防摔", "正品", "高清"), you MAY replace it with a concise English equivalent in a clean sans-serif font
-   - Place replacement text ONLY in empty/margin areas (background, corners, bottom strip) — NEVER on the product surface itself
+2. Text handling — classify every text overlay, then act:
 
-3. If the image has NO text overlays at all:
-   - Just enhance quality, do NOT add any text or graphics
+   REMOVE completely (advertising/junk text):
+   - Watermarks, store logos, platform logos (1688, 淘宝, 天猫, 拼多多 etc.)
+   - Prices, discounts, promotional slogans (¥/$ prices, 特价, 包邮, 爆款, 厂家直销, 秒杀, 新品上市)
+   - Contact info: phone numbers, WeChat/WhatsApp IDs, QR codes, store links
 
-4. NEVER place any text, logo, or graphic directly ON the product surface (e.g. on a phone case body, on the product itself). Text goes only in background/margin areas.
+   KEEP intact (informative product information):
+   - Feature/spec labels that describe the product (材质标注, 参数标注, 功能说明 like "120W 快充", "Type-C 接口", size/length annotations)
+   - Intro text that helps buyers understand the product's function or usage
+   - These provide value — do NOT erase them, do NOT cover them
 
-5. Keep the product shape, color, texture, and details completely untouched.
+3. For KEPT Chinese text: you MAY replace it with a concise English equivalent in a clean sans-serif font at the same position and similar size — ONLY if it can be done cleanly. If a clean replacement is not possible, keep the original text as-is.
+
+4. If the image has NO text overlays at all: just enhance quality, do NOT add any text.
+
+5. NEVER place any new text, logo, or graphic directly ON the product surface. New/replacement text goes only in background/margin areas.
+
+6. Keep the product shape, color, texture, and details completely untouched.
 
 ${pointsHint}
-Output the enhanced image only, no changes to product appearance.`;
+Output the enhanced image only.`;
       imageType = 'main_white';
     } else if (type === 'scene' && category && SCENE_PROMPTS[category]) {
       const scenes = SCENE_PROMPTS[category];
