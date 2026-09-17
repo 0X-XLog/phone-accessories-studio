@@ -1,33 +1,55 @@
+import fs from 'fs';
+import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/verify-admin';
-import { getProductById, getImagesByProductId, getTiktokShops } from '@/lib/db';
-import { getCategoryTree } from '@/lib/tiktok-api';
-import { matchTiktokCategories } from '@/lib/tiktok-categories';
+import { getProductById, getImagesByProductId } from '@/lib/db';
 import ExcelJS from 'exceljs';
+import { CATEGORIES } from '@/lib/categories';
 
 export const runtime = 'nodejs';
 
-// Build product description HTML (same pattern as push route)
+const TEMPLATE_PATH = path.join(process.cwd(), 'data', 'tiktok-template-MY.xlsx');
+
+// 我们 22 类目 → 官方模板 Category 表（MY 店可用类目，格式: 全路径名 (id)）
+const CATEGORY_MAP: Record<string, string> = {
+  phone_case: '手机配件/保护壳、屏幕保护膜、皮肤 (601925)',
+  screen_protector: '手机配件/保护壳、屏幕保护膜、皮肤 (601925)',
+  earbuds: '影音设备/耳机 (601990)',
+  earbuds_case: '影音设备/耳机 (601990)',
+  cable: '手机配件/充电线、充电器 & 转换器 (601937)',
+  charger: '手机配件/充电线、充电器 & 转换器 (601937)',
+  wireless_charger: '手机配件/充电线、充电器 & 转换器 (601937)',
+  usb_hub: '手机配件/充电线、充电器 & 转换器 (601937)',
+  power_bank: '手机配件/移动电源 (910728)',
+  holder: '手机配件/手机支架 (910344)',
+  stand: '手机配件/手机支架 (910344)',
+  car_mount: '手机配件/手机支架 (910344)',
+  phone_ring: '手机配件/手机支架 (910344)',
+  phone_lanyard: '手机配件/手机挂绳与挂件 (601936)',
+  fan: '通用配件/USB风扇 (990728)',
+  stylus: '平板电脑配件/平板电脑触摸笔 (992264)',
+  phone_pouch: '手机配件/保护壳、屏幕保护膜、皮肤 (601925)',
+  tablet_case: '平板电脑配件/平板电脑保护套/壳 (991496)',
+  smart_watch: '智能及穿戴设备/智能手表 & 手环 (602083)',
+  smart_band: '智能及穿戴设备/智能手环 (914056)',
+  cleaning_kit: '手机配件/手机零部件 (909832)',
+  other: '手机配件/手机零部件 (909832)',
+};
+
+function resolveCategoryCell(category: string): string {
+  if (CATEGORY_MAP[category]) return CATEGORY_MAP[category];
+  // 兼容手工创建时存了英文名的商品：反查类目 id 再映射
+  const c = CATEGORIES.find(x => x.id === category || x.nameEn.toLowerCase() === category.toLowerCase());
+  if (c && CATEGORY_MAP[c.id]) return CATEGORY_MAP[c.id];
+  return CATEGORY_MAP['other'];
+}
+
 function buildDescriptionHtml(product: { description_long?: string; description_bullets?: string[] }): string {
   const parts: string[] = [];
   (product.description_long || '').split('\n').filter(Boolean).forEach(line => parts.push(`<p>${line}</p>`));
   const bullets = product.description_bullets || [];
   if (bullets.length) parts.push('<ul>' + bullets.filter(Boolean).map(b => `<li>${b}</li>`).join('') + '</ul>');
   return parts.join('');
-}
-
-// Resolve images: position-based AI replacement, joined for spreadsheet cell
-function resolveImages(
-  product: { id: string; original_images?: string[]; original_image_sources?: string[] },
-  genMap: Map<string, string>,
-  useAiImages: boolean
-): string[] {
-  const baseImages = product.original_images || [];
-  const sources = (product.original_image_sources?.length ? product.original_image_sources : baseImages) || [];
-  const images = useAiImages
-    ? sources.map((src, i) => (baseImages[i] ? genMap.get(baseImages[i]) || src : src))
-    : sources;
-  return images.slice(0, 9);
 }
 
 export async function POST(request: NextRequest) {
@@ -38,33 +60,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const productIds: string[] = Array.isArray(body.productIds) ? body.productIds : [];
     const useAiImages: boolean = !!body.useAiImages;
-    const titleField: string = body.titleField || 'name';
+    const titleField: string = body.titleField || 'title_tiktok_en';
     if (productIds.length === 0) {
       return NextResponse.json({ error: '请先勾选要导出的商品' }, { status: 400 });
     }
-
-    // 类目提示需要类目树；未授权店铺时留空让用户手填
-    let tree: Awaited<ReturnType<typeof getCategoryTree>> | null = null;
-    const shop = getTiktokShops().find(s => s.status === 'active');
-    if (shop) {
-      try { tree = await getCategoryTree(shop); } catch { /* 类目提示尽力而为 */ }
+    if (!fs.existsSync(TEMPLATE_PATH)) {
+      return NextResponse.json({ error: '官方模板文件缺失（data/tiktok-template-MY.xlsx）' }, { status: 500 });
     }
 
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Products');
-    sheet.columns = [
-      { header: 'Product Name', key: 'name', width: 40 },
-      { header: 'Category (TikTok)', key: 'category', width: 30 },
-      { header: 'Description (HTML)', key: 'description', width: 80 },
-      { header: 'Main Image URLs (用|分隔)', key: 'images', width: 70 },
-      { header: 'Price', key: 'price', width: 12 },
-      { header: 'Stock', key: 'stock', width: 10 },
-      { header: 'Seller SKU', key: 'sku', width: 18 },
-      { header: 'Package Weight (g)', key: 'weight', width: 16 },
-    ];
-    sheet.getRow(1).font = { bold: true };
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(TEMPLATE_PATH);
+    const sheet = wb.getWorksheet('Template');
+    if (!sheet) return NextResponse.json({ error: '模板缺少 Template 工作表' }, { status: 500 });
 
-    const missing: string[] = [];
+    // 模板第 6 行是官方示例、第 7 行是残留提示——清掉，数据从第 6 行开始写
+    sheet.getRow(6).values = [];
+    sheet.getRow(7).values = [];
+
+    let rowIndex = 6;
+    let exported = 0;
     for (const pid of productIds) {
       const product = getProductById(pid);
       if (!product) continue;
@@ -74,31 +88,40 @@ export async function POST(request: NextRequest) {
           .filter(g => g.generated_image_url)
           .map(g => [g.original_image_url, g.generated_image_url])
       );
-      const images = resolveImages(product, genMap, useAiImages);
+      const baseImages = product.original_images || [];
+      const sources = (product.original_image_sources?.length ? product.original_image_sources : baseImages) || [];
+      const images = (useAiImages
+        ? sources.map((src: string, i: number) => (baseImages[i] ? genMap.get(baseImages[i]) || src : src))
+        : sources
+      ).slice(0, 9);
+
       const title = titleField !== 'name'
         ? (product as unknown as Record<string, string>)[titleField] || product.name
         : product.name;
 
-      let categoryHint = '';
-      if (tree) {
-        const matches = matchTiktokCategories(product.category || 'other', tree);
-        if (matches.length > 0) categoryHint = `${matches[0].name} (id: ${matches[0].id})`;
-      }
-      if (!categoryHint) categoryHint = product.category || '';
-
-      sheet.addRow({
-        name: title,
-        category: categoryHint,
-        description: buildDescriptionHtml(product),
-        images: images.join('|'),
-        price: '',
-        stock: 99,
-        sku: `PA-${product.id.slice(0, 8).toUpperCase()}`,
-        weight: 200,
-      });
+      const row = sheet.getRow(rowIndex);
+      row.getCell(1).value = resolveCategoryCell(product.category || '');
+      // col2 品牌：留空 = 无品牌（官方说明）
+      row.getCell(3).value = title;
+      row.getCell(4).value = buildDescriptionHtml(product);
+      images.forEach((url, i) => { row.getCell(5 + i).value = url; }); // cols 5..13 主图+图2-9
+      row.getCell(19).value = 200; // 包裹重量(g)
+      row.getCell(20).value = 20;  // 长(cm)
+      row.getCell(21).value = 15;  // 宽(cm)
+      row.getCell(22).value = 5;   // 高(cm)
+      // col23 零售价：必填，留空由用户在 Excel 中补填
+      row.getCell(24).value = 99;  // 数量
+      row.getCell(25).value = `PA-${product.id.slice(0, 8).toUpperCase()}`; // 商家 SKU
+      row.commit();
+      rowIndex++;
+      exported++;
     }
 
-    const buffer = await workbook.xlsx.writeBuffer();
+    if (exported === 0) {
+      return NextResponse.json({ error: '所选商品均不存在' }, { status: 400 });
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     return new NextResponse(buffer as ArrayBuffer, {
       status: 200,
