@@ -1,20 +1,19 @@
-// Text + Vision generation: Gemini native API (generateContent)
-// Note: Gemini 3.5 Flash OpenAI-compatible endpoint has a thinking mode bug
-// that pollutes content output. Must use native API instead.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.TEXT_API_KEY || '';
-const TEXT_MODEL = process.env.TEXT_MODEL || 'gemini-3.5-flash';
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+// Text + Vision generation: OpenAI-compatible relay (beefapi /chat/completions)
+// Vision input is sent as image_url content parts (base64 data URLs).
+const TEXT_API_KEY = process.env.TEXT_API_KEY || '';
+const TEXT_API_BASE = (process.env.TEXT_API_BASE || '').replace(/\/+$/, '');
+const TEXT_MODEL = process.env.TEXT_MODEL || 'gpt-4o';
 
 interface GenerateTextOptions {
   prompt: string;
   systemPrompt?: string;
   maxTokens?: number;
   temperature?: number;
-  images?: string[]; // R2 image URLs to send as vision input
+  images?: string[]; // image URLs to send as vision input
 }
 
-// Download image URL to base64
-async function imageUrlToBase64(url: string): Promise<{ data: string; mimeType: string } | null> {
+// Download image URL to base64 data URL
+async function imageUrlToDataUrl(url: string): Promise<string | null> {
   try {
     if (url.startsWith('//')) url = 'https:' + url;
     const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
@@ -22,7 +21,7 @@ async function imageUrlToBase64(url: string): Promise<{ data: string; mimeType: 
     const buffer = Buffer.from(await res.arrayBuffer());
     const ct = res.headers.get('content-type') || 'image/jpeg';
     const mimeType = ct.includes('png') ? 'image/png' : ct.includes('webp') ? 'image/webp' : 'image/jpeg';
-    return { data: buffer.toString('base64'), mimeType };
+    return `data:${mimeType};base64,${buffer.toString('base64')}`;
   } catch {
     return null;
   }
@@ -31,8 +30,8 @@ async function imageUrlToBase64(url: string): Promise<{ data: string; mimeType: 
 export async function generateText(options: GenerateTextOptions): Promise<string> {
   const { prompt, systemPrompt, maxTokens = 3000, temperature = 0.7, images } = options;
 
-  if (!GEMINI_API_KEY) {
-    throw new Error('未配置 Gemini API Key (GEMINI_API_KEY)');
+  if (!TEXT_API_KEY || !TEXT_API_BASE) {
+    throw new Error('未配置文本生成 API (TEXT_API_KEY / TEXT_API_BASE)');
   }
 
   const maxRetries = 5;
@@ -47,51 +46,41 @@ export async function generateText(options: GenerateTextOptions): Promise<string
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      // Build parts array (Gemini native format)
-      const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
-
-      // System instruction (placed as first text part with prefix)
-      if (systemPrompt) {
-        parts.push({ text: `[System Instruction]\n${systemPrompt}\n\n[End System Instruction]\n\n` });
-      }
-
-      // Add images if present (vision mode)
+      // Vision mode: download up to 5 images as base64 data URLs
+      let content: string | Array<Record<string, unknown>> = prompt;
       if (images && images.length > 0) {
-        const b64Results = await Promise.allSettled(
-          images.slice(0, 5).map(url => imageUrlToBase64(url))
+        const results = await Promise.allSettled(
+          images.slice(0, 5).map(url => imageUrlToDataUrl(url))
         );
-        const validImages: { data: string; mimeType: string }[] = [];
-        for (const r of b64Results) {
-          if (r.status === 'fulfilled' && r.value !== null) {
-            validImages.push(r.value as { data: string; mimeType: string });
-          }
-        }
+        const validImages = results
+          .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled' && r.value !== null)
+          .map(r => r.value);
 
         if (validImages.length > 0) {
           console.log(`[VISION] Sending ${validImages.length} images`);
-          for (const img of validImages) {
-            parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
-          }
+          content = [
+            ...validImages.map(url => ({ type: 'image_url' as const, image_url: { url } })),
+            { type: 'text' as const, text: prompt },
+          ];
         } else {
           console.log('[VISION] Failed to download images, text-only mode');
         }
       }
 
-      // User prompt
-      parts.push({ text: prompt });
-
-      const url = `${GEMINI_BASE}/${TEXT_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-      const response = await fetch(url, {
+      const response = await fetch(`${TEXT_API_BASE}/chat/completions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${TEXT_API_KEY}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            maxOutputTokens: maxTokens,
-            temperature,
-            thinkingConfig: { thinkingBudget: 0 },
-          },
+          model: TEXT_MODEL,
+          messages: [
+            ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+            { role: 'user' as const, content },
+          ],
+          max_tokens: maxTokens,
+          temperature,
         }),
       });
 
@@ -101,25 +90,13 @@ export async function generateText(options: GenerateTextOptions): Promise<string
       }
 
       const data = await response.json();
+      const text = data.choices?.[0]?.message?.content;
 
-      // Extract text from Gemini response: candidates[0].content.parts[].text
-      const responseParts = data.candidates?.[0]?.content?.parts;
-      if (!responseParts || !Array.isArray(responseParts)) {
-        throw new Error(`API returned no content parts: ${JSON.stringify(data).slice(0, 300)}`);
-      }
-
-      let text = '';
-      for (const part of responseParts) {
-        if (part.text) {
-          text += part.text;
-        }
-      }
-
-      if (!text.trim()) {
+      if (!text || !String(text).trim()) {
         throw new Error(`API returned empty text: ${JSON.stringify(data).slice(0, 300)}`);
       }
 
-      return text.trim();
+      return String(text).trim();
     } catch (error) {
       lastError = error as Error;
       console.log(`Attempt ${attempt + 1} failed: ${(lastError as Error).message?.slice(0, 200)}`);

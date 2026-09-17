@@ -1,7 +1,11 @@
-// Image generation: Gemini native API (gemini-3.1-flash-image / Banana)
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.OPENAI_IMAGE_API_KEY || '';
-const IMAGE_MODEL = process.env.IMAGE_MODEL || 'gemini-3.1-flash-image';
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+// Image generation: OpenAI-compatible relay (beefapi)
+// - Text-to-image: POST {base}/images/generations (JSON)
+// - Image-to-image: POST {base}/images/edits (multipart) — the relay rejects
+//   image params on /generations and requires the edits endpoint
+// - Response returns a proxy url (302 -> real image), not b64_json
+const IMAGE_API_KEY = process.env.OPENAI_IMAGE_API_KEY || process.env.TEXT_API_KEY || '';
+const IMAGE_API_BASE = (process.env.OPENAI_IMAGE_API_BASE || '').replace(/\/+$/, '');
+const IMAGE_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2.5-flare';
 
 interface EditImageOptions {
   imageBuffer: Buffer;
@@ -24,21 +28,39 @@ function isRetryableError(err: Error): boolean {
   );
 }
 
+async function urlToBase64(url: string): Promise<string> {
+  // fetch follows the relay's 302 to the real image automatically
+  const res = await fetch(url, { signal: AbortSignal.timeout(120000) });
+  if (!res.ok) {
+    throw new Error(`Failed to download generated image (${res.status})`);
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return buffer.toString('base64');
+}
+
+interface ImageApiItem {
+  b64_json?: string;
+  url?: string;
+}
+
+async function extractImageBase64(data: unknown): Promise<string> {
+  const items = (data as { data?: ImageApiItem[] })?.data;
+  const item = items?.[0];
+  if (item?.b64_json) return item.b64_json;
+  if (item?.url) return urlToBase64(item.url);
+  throw new Error(`API returned no image: ${JSON.stringify(data).slice(0, 300)}`);
+}
+
 export async function editImage(options: EditImageOptions): Promise<{ b64Json: string }> {
   const { imageBuffer, prompt, size = '1024x1024' } = options;
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 5000;
 
-  if (!GEMINI_API_KEY) throw new Error('未配置 Gemini API Key (GEMINI_API_KEY)');
+  if (!IMAGE_API_KEY || !IMAGE_API_BASE) {
+    throw new Error('未配置图片生成 API (OPENAI_IMAGE_API_KEY / OPENAI_IMAGE_API_BASE)');
+  }
 
-  const base64Image = imageBuffer.toString('base64');
   let lastError: Error | null = null;
-
-  // Add size hint to prompt since Gemini doesn't support size parameter directly
-  const sizeHint = size === '1536x1024' ? ' Generate a landscape-oriented image (3:2 aspect ratio).'
-    : size === '1024x1536' ? ' Generate a portrait-oriented image (2:3 aspect ratio).'
-    : ' Generate a square image (1:1 aspect ratio).';
-  const finalPrompt = prompt + sizeHint;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -47,22 +69,19 @@ export async function editImage(options: EditImageOptions): Promise<{ b64Json: s
         await new Promise(r => setTimeout(r, RETRY_DELAY));
       }
 
-      const url = `${GEMINI_BASE}/${IMAGE_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+      // Image-to-image: multipart /images/edits
+      const form = new FormData();
+      form.append('model', IMAGE_MODEL);
+      form.append('prompt', prompt);
+      form.append('size', size);
+      form.append('n', '1');
+      form.append('image', new Blob([new Uint8Array(imageBuffer)], { type: 'image/png' }), 'input.png');
 
-      const response = await fetch(url, {
+      const response = await fetch(`${IMAGE_API_BASE}/images/edits`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: finalPrompt },
-              { inlineData: { mimeType: 'image/png', data: base64Image } },
-            ],
-          }],
-          generationConfig: {
-            responseModalities: ['TEXT', 'IMAGE'],
-          },
-        }),
+        headers: { Authorization: `Bearer ${IMAGE_API_KEY}` },
+        body: form,
+        signal: AbortSignal.timeout(300000),
       });
 
       if (!response.ok) {
@@ -72,24 +91,12 @@ export async function editImage(options: EditImageOptions): Promise<{ b64Json: s
 
       const data = await response.json();
 
-      // Check for API-level error
       if (data.error) {
         throw new Error(data.error.message || JSON.stringify(data.error));
       }
 
-      // Extract image from Gemini response: candidates[0].content.parts[].inlineData.data
-      const parts = data.candidates?.[0]?.content?.parts;
-      if (!parts || !Array.isArray(parts)) {
-        throw new Error(`API returned no content parts: ${JSON.stringify(data).slice(0, 300)}`);
-      }
-
-      for (const part of parts) {
-        if (part.inlineData?.data) {
-          return { b64Json: part.inlineData.data };
-        }
-      }
-
-      throw new Error(`API returned no image in response: ${JSON.stringify(data).slice(0, 300)}`);
+      const b64Json = await extractImageBase64(data);
+      return { b64Json };
 
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
