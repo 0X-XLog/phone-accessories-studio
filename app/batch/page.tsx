@@ -22,6 +22,8 @@ export default function BatchPage() {
   const [msg, setMsg] = useState('');
   const [useAiImages, setUseAiImages] = useState(true);
   const [titleField, setTitleField] = useState('title_tiktok_en');
+  const [rate, setRate] = useState('0.65');
+  const [markup, setMarkup] = useState('2.5');
 
   const load = async () => {
     setLoading(true);
@@ -55,7 +57,7 @@ export default function BatchPage() {
       const res = await fetch('/api/tiktok/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productIds: [...selected], useAiImages, titleField }),
+        body: JSON.stringify({ productIds: [...selected], useAiImages, titleField, rate: Number(rate), markup: Number(markup) }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -120,6 +122,19 @@ export default function BatchPage() {
               />
               优先使用 AI 增强图
             </label>
+            <label className="text-gray-600">汇率(CNY→MYR):</label>
+            <input
+              type="number" step="0.01" min="0" value={rate}
+              onChange={(e) => setRate(e.target.value)}
+              className="w-20 px-2 py-1.5 rounded-lg border border-gray-300 text-sm"
+            />
+            <label className="text-gray-600">加价倍数:</label>
+            <input
+              type="number" step="0.1" min="0" value={markup}
+              onChange={(e) => setMarkup(e.target.value)}
+              className="w-20 px-2 py-1.5 rounded-lg border border-gray-300 text-sm"
+            />
+            <span className="text-xs text-gray-400">建议价 = 1688成本 × 汇率 × 倍数</span>
           </div>
 
           {loading ? (

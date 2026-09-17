@@ -61,6 +61,9 @@ export async function POST(request: NextRequest) {
     const productIds: string[] = Array.isArray(body.productIds) ? body.productIds : [];
     const useAiImages: boolean = !!body.useAiImages;
     const titleField: string = body.titleField || 'title_tiktok_en';
+    // 建议零售价 = 1688成本价(CNY) × 汇率 × 加价倍数；可在页面调
+    const rate: number = Number(body.rate) > 0 ? Number(body.rate) : 0.65;
+    const markup: number = Number(body.markup) > 0 ? Number(body.markup) : 2.5;
     if (productIds.length === 0) {
       return NextResponse.json({ error: '请先勾选要导出的商品' }, { status: 400 });
     }
@@ -109,8 +112,11 @@ export async function POST(request: NextRequest) {
       row.getCell(20).value = 20;  // 长(cm)
       row.getCell(21).value = 15;  // 宽(cm)
       row.getCell(22).value = 5;   // 高(cm)
-      // col23 零售价：必填，留空由用户在 Excel 中补填
-      row.getCell(24).value = 99;  // 数量
+      // col23 零售价：有成本价则按 汇率×倍数 生成建议价，否则留空手填
+      if ((product.cost_price || 0) > 0) {
+        row.getCell(23).value = Math.round(product.cost_price * rate * markup * 100) / 100;
+      }
+      row.getCell(24).value = product.stock ?? 99;  // 数量
       row.getCell(25).value = `PA-${product.id.slice(0, 8).toUpperCase()}`; // 商家 SKU
       row.commit();
       rowIndex++;

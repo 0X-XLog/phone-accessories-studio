@@ -180,6 +180,8 @@ export default function NewProductPage() {
           original_notes_html: originalNotesHtml,
           source: msSelectedDetailId ? 'miaoshou' : '',
           ms_detail_id: msSelectedDetailId || null,
+          cost_price: msSelectedDetailId ? (msItems.find(i => i.id === msSelectedDetailId)?.price || 0) : 0,
+          stock: msSelectedDetailId ? (msItems.find(i => i.id === msSelectedDetailId)?.stock || null) : null,
         }),
       });
 

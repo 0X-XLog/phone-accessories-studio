@@ -165,6 +165,8 @@ function initTables(db: Database.Database) {
   try { db.exec("ALTER TABLE pa_products ADD COLUMN original_image_sources TEXT DEFAULT '[]'"); } catch { /* column exists */ }
   try { db.exec("ALTER TABLE pa_products ADD COLUMN desc_image_sources TEXT DEFAULT '[]'"); } catch { /* column exists */ }
   try { db.exec("ALTER TABLE pa_products ADD COLUMN original_notes_html TEXT DEFAULT ''"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE pa_products ADD COLUMN cost_price REAL DEFAULT 0"); } catch { /* column exists */ }
+  try { db.exec("ALTER TABLE pa_products ADD COLUMN stock INTEGER"); } catch { /* column exists */ }
 }
 
 export function generateId(): string {
@@ -205,6 +207,8 @@ export interface Product {
   longtail_keywords: string[];
   source: string;
   ms_detail_id: number | null;
+  cost_price: number;
+  stock: number | null;
   status: string;
   total_cost: number;
   created_at: string;
@@ -258,6 +262,8 @@ export function createProduct(data: Partial<Product>): Product {
     original_notes_html: data.original_notes_html || '',
     source: data.source || '',
     ms_detail_id: data.ms_detail_id || null,
+    cost_price: data.cost_price || 0,
+    stock: data.stock ?? null,
     status: 'draft',
     total_cost: 0,
     created_at: now,
