@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
           description: (product?.description_long || '').slice(0, 600),
           analysis: JSON.stringify(product?.ai_analysis || {}).slice(0, 600),
           sellingPoints: sellingPoints || [],
+          attributes: (product?.ai_analysis as Record<string, unknown> | undefined)?.attributes as Record<string, unknown> | undefined,
         });
         systemPrompt = MS_STRUCTURED_SYSTEM_PROMPT;
         temperature = 0.5;

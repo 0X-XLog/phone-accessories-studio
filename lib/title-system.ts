@@ -106,6 +106,7 @@ export interface StructuredTitleInput {
   description?: string;      // AI 长描述
   analysis?: string;         // AI 分析 JSON
   sellingPoints?: string[];
+  attributes?: Record<string, unknown>; // Phase 2：AI 分析提取的结构化属性（权威数据源）
 }
 
 // 结构化 MS 标题生成 prompt：模板填空 + 只准用真实数据 + 硬性约束
@@ -113,10 +114,16 @@ export function buildStructuredMsTitlePrompt(input: StructuredTitleInput): strin
   const core = MS_CORE_WORDS[input.category] || MS_CORE_WORDS['other'];
   const template = getTemplate(input.category);
   const points = (input.sellingPoints || []).slice(0, 6).join('; ');
+  const attrs = input.attributes && Object.keys(input.attributes).length > 0
+    ? JSON.stringify(input.attributes)
+    : '(not extracted yet — rely on PRODUCT DATA below)';
 
   return `Task: Generate ONE Bahasa Melayu product title for TikTok Shop Malaysia, following the structured template strictly.
 
-PRODUCT DATA (the ONLY source of truth — do NOT invent any spec/model/feature not present here):
+EXTRACTED ATTRIBUTES (authoritative — fill template slots from these FIRST):
+${attrs}
+
+PRODUCT DATA (secondary source — do NOT invent any spec/model/feature not present here):
 - Cleaned title: ${input.name}
 - Brand: ${input.brand || '(none)'}
 - Specs from supplier: ${input.specsText || '(none)'}
@@ -131,7 +138,7 @@ ${template}
 
 HARD RULES:
 1. Start with the core word "${core.core}". End with the English keyword "${core.en}".
-2. Fill slots ONLY with specs/attributes that appear in PRODUCT DATA above. If a slot has no data, SKIP that slot entirely — never invent.
+2. Fill slots ONLY with values from EXTRACTED ATTRIBUTES (first) and PRODUCT DATA (second). If a slot has no data, SKIP that slot entirely — never invent.
 3. Compatible models: ONLY use models explicitly present in PRODUCT DATA, prefixed with "untuk". If no model is given, write "untuk Telefon Android" (or the actual device type) — never guess iPhone/Samsung models.
 4. NEVER add promotional words: Best, No.1, Original, Authentic, Premium, Luxury, Viral, Top Quality, Cheap, Super, Amazing, Hot Sale, 100%.
 5. Technical terms stay untranslated: USB-C, GaN, PD, QC, mAh, W, HDMI, MagSafe, Bluetooth, Type-C, 65W.

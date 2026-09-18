@@ -22,6 +22,14 @@ Your analysis must include:
 6. Target Users — primary buyer demographics
 7. Suggested Selling Points — 5-8 selling points based on VISIBLE features (not generic category features)
 8. Competitor Keywords — 10-15 search keywords buyers actually use on Shopee/TikTok/Lazada
+9. Attributes — machine-readable specs as JSON. Fill ONLY what is visible in images or stated in product data; use "" or [] for unknowns (NEVER guess). Focus fields by category:
+   - charger: type(wall/car/GaN), power, ports, protocol(PD/QC), features
+   - cable: connector(USB-C/Lightning), power, length, protocol, features
+   - power_bank: capacity(mAh), power(W), ports, magnetic, features
+   - phone_case / screen_protector: compatible_models, material, feature_flags, magsafe
+   - phone_lens: lens_type(fisheye/telephoto/macro/wide), compatible_models, mounting(clip), zoom
+   - earbuds: type(TWS), bluetooth_version, battery, features(ANC/mic)
+   - holder / stand: mount_type(desk/car/magnetic), adjustable, rotation(360°), material, features
 
 Rules:
 - Your analysis MUST reflect what is actually shown in the images, NOT generic category knowledge
@@ -62,7 +70,10 @@ xxx
 
 【Competitor Keywords】
 - xxx
-- xxx`;
+- xxx
+
+【Attributes】
+{"product_type":"", "power":"", "ports":[], "protocol":[], "compatible_models":[], "compatible_brands":[], "capacity":"", "length":"", "bluetooth_version":"", "material":"", "color":"", "quantity":"", "magnetic":false, "waterproof":"", "lens_type":"", "mount_type":"", "features":[]}`;
 
 export function buildAnalysisPrompt(
   name: string,
@@ -456,6 +467,7 @@ export function parseAnalysisOutput(text: string): {
   targetUsers: string;
   suggestedPoints: string[];
   competitorKeywords: string[];
+  attributes: Record<string, unknown>;
 } {
   const productType = (text.match(/【Product Type】\s*\n([\s\S]*?)\n\s*【Color/) || [])[1]?.trim() || '';
 
@@ -473,8 +485,16 @@ export function parseAnalysisOutput(text: string): {
   const pointsBlock = (text.match(/【Suggested Selling Points】\s*\n([\s\S]*?)\n\s*【Competitor/) || [])[1] || '';
   const suggestedPoints = pointsBlock.split('\n').map((s) => s.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
 
-  const keywordsBlock = (text.match(/【Competitor Keywords】\s*\n([\s\S]*?)$/) || [])[1] || '';
+  const keywordsBlock = (text.match(/【Competitor Keywords】\s*\n([\s\S]*?)\n\s*【Attributes】/) || [])[1]
+    || (text.match(/【Competitor Keywords】\s*\n([\s\S]*?)$/) || [])[1] || '';
   const competitorKeywords = keywordsBlock.split('\n').map((s) => s.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
 
-  return { productType, color, material, quantityPackage, usageScenarios, targetUsers, suggestedPoints, competitorKeywords };
+  const attributes: Record<string, unknown> = {};
+  const attrBlock = (text.match(/【Attributes】\s*\n([\s\S]*?)$/) || [])[1] || '';
+  const jsonStr = (attrBlock.match(/\{[\s\S]*\}/) || [])[0];
+  if (jsonStr) {
+    try { Object.assign(attributes, JSON.parse(jsonStr)); } catch { /* 容忍格式瑕疵 */ }
+  }
+
+  return { productType, color, material, quantityPackage, usageScenarios, targetUsers, suggestedPoints, competitorKeywords, attributes };
 }
