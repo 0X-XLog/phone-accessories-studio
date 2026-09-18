@@ -14,6 +14,7 @@ const TEMPLATE_PATH = path.join(process.cwd(), 'data', 'tiktok-template-MY.xlsx'
 const CATEGORY_MAP: Record<string, string> = {
   phone_case: '手机配件/保护壳、屏幕保护膜、皮肤 (601925)',
   screen_protector: '手机配件/保护壳、屏幕保护膜、皮肤 (601925)',
+  phone_lens: '手机配件/广角镜头、手机闪光灯 (910088)',
   earbuds: '影音设备/耳机 (601990)',
   earbuds_case: '影音设备/耳机 (601990)',
   cable: '手机配件/充电线、充电器 & 转换器 (601937)',

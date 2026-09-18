@@ -11,6 +11,7 @@ export interface Category {
 export const CATEGORIES: Category[] = [
   { id: 'phone_case', nameEn: 'Phone Case', nameZh: '手机壳', nameMs: 'Kes Telefon', icon: '📱' },
   { id: 'screen_protector', nameEn: 'Screen Protector', nameZh: '手机膜', nameMs: 'Penapis Skrin', icon: '🛡️' },
+  { id: 'phone_lens', nameEn: 'Phone Lens', nameZh: '手机镜头', nameMs: 'Kanta Kamera Telefon', icon: '📷' },
   { id: 'earbuds', nameEn: 'Earbuds', nameZh: '蓝牙耳机', nameMs: 'Earbud', icon: '🎧' },
   { id: 'earbuds_case', nameEn: 'Earbuds Case', nameZh: '耳机壳', nameMs: 'Kes Earbud', icon: '🎵' },
   { id: 'cable', nameEn: 'Cable', nameZh: '数据线', nameMs: 'Kabel', icon: '🔌' },
@@ -217,6 +218,7 @@ export const SELLING_POINT_IMAGE_PROMPTS: Record<string, Record<string, string>>
 
 // Category detection from Chinese product titles
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  phone_lens: ['手机镜头', '镜头', '鱼眼', '广角', '长焦', '微距', '增距', 'Kanta', 'Lens', 'Fisheye', 'Telephoto', 'Wide Angle', 'Macro Lens'],
   screen_protector: ['钢化膜', '手机膜', '保护膜', '防窥膜', '水凝膜', '高清膜', '磨砂膜', '防指纹膜', '贴膜', '全屏膜', '玻璃膜', 'Screen Protector', 'Tempered Glass'],
   phone_case: ['手机壳', '手机套', '保护壳', '保护套', '硅胶套', '透明壳', '防摔壳', '手机皮套'],
   earbuds_case: ['耳机壳', '耳机套', '耳机保护壳', 'AirPods壳', '充电仓壳', 'Earbuds Case'],

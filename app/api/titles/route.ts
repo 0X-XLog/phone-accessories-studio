@@ -10,7 +10,8 @@ import {
   buildTitlePrompt,
   parseTitleOutput,
 } from '@/lib/prompts-3c';
-import { updateProduct, createHistory, addProductCost } from '@/lib/db';
+import { updateProduct, createHistory, addProductCost, getProductById } from '@/lib/db';
+import { buildStructuredMsTitlePrompt, MS_STRUCTURED_SYSTEM_PROMPT, validateTitle } from '@/lib/title-system';
 
 const TITLE_CONFIGS = {
   tiktok_en: { system: TITLE_TIKTOK_EN_PROMPT, field: 'title_tiktok_en' },
@@ -29,16 +30,25 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { productId, name, category, brand, color, material, specs, keywords, sellingPoints, platforms } = body as any;
+  const { productId, name, category: category_raw, brand, color, material, specs, keywords, sellingPoints, platforms } = body as any;
 
   try {
     if (!productId) {
       return NextResponse.json({ error: 'Missing productId' }, { status: 400 });
     }
 
+    const product = getProductById(productId);
+    const category = (category_raw || product?.category || 'other') as string;
+    const specText = (product?.original_notes_html || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 1200);
+
     const prompt = buildTitlePrompt(
       name || '',
-      category || '',
+      category,
       brand || '',
       color || '',
       material || '',
@@ -63,14 +73,34 @@ export async function POST(request: NextRequest) {
         await new Promise(r => setTimeout(r, 3000));
       }
 
+      let genPrompt = `${prompt}\n\nOutput only the title text, nothing else.`;
+      let systemPrompt = config.system;
+      let temperature = 0.7;
+      if (platform === 'tiktok_ms') {
+        // 结构化标题系统：类目模板填空，只准用真实数据
+        genPrompt = buildStructuredMsTitlePrompt({
+          category,
+          name: name || product?.name || '',
+          brand: brand || product?.brand || '',
+          specsText: specText,
+          description: (product?.description_long || '').slice(0, 600),
+          analysis: JSON.stringify(product?.ai_analysis || {}).slice(0, 600),
+          sellingPoints: sellingPoints || [],
+        });
+        systemPrompt = MS_STRUCTURED_SYSTEM_PROMPT;
+        temperature = 0.5;
+      }
+
       const result = await generateText({
-        prompt: `${prompt}\n\nOutput only the title text, nothing else.`,
-        systemPrompt: config.system,
+        prompt: genPrompt,
+        systemPrompt,
         maxTokens: 1000,
-        temperature: 0.7,
+        temperature,
       });
 
-      results[config.field] = parseTitleOutput(result);
+      const v = validateTitle(parseTitleOutput(result));
+      if (v.issues.length) console.log(`[TITLE] ${platform} 校验: ${v.issues.join(' | ')}`);
+      results[config.field] = v.cleaned;
     }
     totalCost = getCost('title') * targetPlatforms.length;
 
