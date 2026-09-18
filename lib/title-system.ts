@@ -32,14 +32,14 @@ export const MS_CORE_WORDS: Record<string, { core: string; en: string }> = {
 
 // 分类目标题骨架（槽位顺序 = 搜索权重顺序）
 export const TITLE_TEMPLATES: Record<string, string> = {
-  charger: '[Pengecas + 类型 Dinding/Kereta/GaN] + [功率 65W] + [接口 USB-C/USB-A] + [协议 PD/QC] + [功能 Pengecasan Pantas] + [英文: Fast Charging Charger]',
-  cable: '[Kabel + 接口 USB-C/Lightning] + [功率/速度 60W/100W] + [长度 1M] + [兼容 untuk X] + [功能 Pengecasan Pantas] + [英文: Fast Charging Cable]',
-  power_bank: '[Bank Kuasa] + [容量 10000mAh] + [功率 22.5W] + [接口/技术 USB-C/Magnetik] + [兼容 untuk X] + [英文: Power Bank]',
+  charger: '[Pengecas + 类型 Dinding/Kereta/GaN] + [功率 65W] + [接口 USB-C/USB-A] + [协议 PD/QC（如有）] + [功能 Pengecasan Pantas] + [英文: Fast Charging Charger]',
+  cable: '[Kabel + 接口 USB-C/Lightning] + [功率/速度 60W/100W] + [长度 1M] + [兼容 untuk 型号（仅明确时）] + [英文: Fast Charging Cable]',
+  power_bank: '[Bank Kuasa] + [容量 10000mAh] + [功率 22.5W] + [接口/技术 USB-C/Magnetik] + [英文: Power Bank]',
   phone_case: '[Sarung Telefon/Kes] + [兼容 untuk 型号] + [材质/设计 Silikon/Lutsinar/Gebel] + [防护 Kalis Hentak/Anti Kekuningan] + [功能 MagSafe/Pelindung Kamera] + [英文: Phone Case]',
   screen_protector: '[Penapis Skrin] + [兼容 untuk 型号] + [材质 Kaca Temper/HD] + [功能 Anti Gores/Bebas Buih] + [数量 2pcs] + [英文: Screen Protector]',
   holder: '[Pemegang Telefon + 类型 Kereta/Meja/Magnetik] + [可调 Boleh Laras/Lipat] + [安装方式] + [功能 Putaran 360°] + [兼容 untuk X] + [英文: Phone Holder]',
   stand: '[Pemegang Telefon + 类型 Meja/Lipat] + [可调 Boleh Laras] + [材质 Aloz/Plastik] + [功能 Putaran 360°] + [英文: Phone Stand]',
-  phone_lens: '[Kanta Kamera Telefon] + [类型 Fisheye/Telefoto/Makro/Lebar] + [兼容 untuk 型号/品牌] + [安装 Klip] + [功能 HD/Zoom] + [英文: Phone Lens]',
+  phone_lens: '[Kanta Kamera Telefon] + [类型 Fisheye/Telefoto/Makro/Lebar] + [兼容 untuk 型号（仅明确时）] + [安装 Klip] + [功能 HD/Zoom] + [英文: Phone Lens]',
   earbuds: '[Fon Telinga Bluetooth] + [类型 TWS/Tanpa Wayar] + [功能 Mikrofon/Pengurangan Bunyi] + [电池 mAh/jam] + [连接 Bluetooth 5.3] + [英文: Wireless Earbuds]',
 };
 
@@ -154,7 +154,7 @@ ${template}
 HARD RULES:
 1. Start with the core word "${core.core}". End with the English keyword "${core.en}".
 2. Fill slots ONLY with values from EXTRACTED ATTRIBUTES (first) and PRODUCT DATA (second). If a slot has no data, SKIP that slot entirely — never invent.
-3. Compatible models: ONLY use models explicitly present in PRODUCT DATA, prefixed with "untuk". If no model is given, write "untuk Telefon Android" (or the actual device type) — never guess iPhone/Samsung models.
+3. Compatibility slot: ONLY when a specific model/brand appears in EXTRACTED ATTRIBUTES or PRODUCT DATA — then write "untuk + model" (e.g. "untuk iPhone 17"). If the product is UNIVERSAL (works with all brands: most chargers, cables, holders, earbuds), SKIP the compatibility slot entirely. NEVER default to "untuk Telefon Android" — that falsely narrows universal products. You MAY include the word "Universal" only if 通用/universal appears in the product data.
 4. NEVER add promotional words: Best, No.1, Original, Authentic, Premium, Luxury, Viral, Top Quality, Cheap, Super, Amazing, Hot Sale, 100%.
 5. Technical terms stay untranslated: USB-C, GaN, PD, QC, mAh, W, HDMI, MagSafe, Bluetooth, Type-C, 65W.
 6. Language mix: ~70-85% Bahasa Melayu + technical terms + English keyword tail. Do not repeat keywords.
