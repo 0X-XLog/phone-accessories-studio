@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
    - Intro text that helps buyers understand the product's function or usage
    - These provide value — do NOT erase them, do NOT cover them
 
-3. For KEPT Chinese text: you MAY replace it with a concise English equivalent in a clean sans-serif font at the same position and similar size — ONLY if it can be done cleanly. If a clean replacement is not possible, keep the original text as-is.
+3. For KEPT informative Chinese text: REPLACE it with a concise English equivalent — same position, similar size, clean sans-serif font. This is the DEFAULT (buyers are Malaysian; English sells better than Chinese). Keep the original Chinese wording ONLY when an English replacement is physically impossible without ruining the image layout.
 
 4. If the image has NO text overlays at all: just enhance quality, do NOT add any text.
 

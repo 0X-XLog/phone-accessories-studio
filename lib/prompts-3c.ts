@@ -376,9 +376,9 @@ Target Platforms: Shopee Malaysia, TikTok Shop, Lazada Malaysia${analysisNote}`;
 
 // ========== Image Generation Prompts ==========
 export const MAIN_IMAGE_PROMPTS: Record<string, string> = {
-  white_bg: `Remove background, replace with pure white (#FFFFFF). Keep product exactly as-is. Enhance to HD quality: improve sharpness, optimize brightness and contrast, vibrant accurate colors. Remove watermarks, platform logos (1688/淘宝), prices, promotional slogans, and contact info (QR codes, phone numbers, WeChat). KEEP informative product labels/spec callouts (e.g. "120W", "Type-C", material annotations) — these stay. Clean professional e-commerce product photo.`,
+  white_bg: `Remove background, replace with pure white (#FFFFFF). Keep product exactly as-is. Enhance to HD quality: improve sharpness, optimize brightness and contrast, vibrant accurate colors. Remove watermarks, platform logos (1688/淘宝), prices, promotional slogans, and contact info (QR codes, phone numbers, WeChat). KEEP informative product labels/spec callouts (e.g. "120W", "Type-C", material annotations) but REPLACE their Chinese wording with concise English at the same position (buyers are Malaysian). Clean professional e-commerce product photo.`,
 
-  enhanced: `Enhance this product photo to HD quality: improve sharpness and clarity, optimize brightness and contrast, vibrant but accurate colors, professional lighting. Remove watermarks, platform logos, prices, promotional slogans, and contact info (QR codes, phone numbers, WeChat). KEEP informative product labels/spec callouts (e.g. "120W", "Type-C", material annotations) — these stay. Keep the product exactly as-is. Pure white background (#FFFFFF).`,
+  enhanced: `Enhance this product photo to HD quality: improve sharpness and clarity, optimize brightness and contrast, vibrant but accurate colors, professional lighting. Remove watermarks, platform logos, prices, promotional slogans, and contact info (QR codes, phone numbers, WeChat). KEEP informative product labels/spec callouts (e.g. "120W", "Type-C", material annotations) but REPLACE their Chinese wording with concise English at the same position (buyers are Malaysian). Keep the product exactly as-is. Pure white background (#FFFFFF).`,
 };
 
 // ========== Store Description Templates ==========
