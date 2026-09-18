@@ -566,31 +566,35 @@ export default function ProductDetailPage() {
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < pendingImages.length; i++) {
-      setImageProgress({ current: i + 1, total: pendingImages.length });
-      try {
+    // 双车道并行：每车道走不同账号令牌（独立队列），吞吐约 2 倍
+    const LANE_COUNT = 2;
+    for (let i = 0; i < pendingImages.length; i += LANE_COUNT) {
+      const chunk = pendingImages.slice(i, i + LANE_COUNT);
+      setImageProgress({ current: Math.min(i + LANE_COUNT, pendingImages.length), total: pendingImages.length });
+      const results = await Promise.allSettled(chunk.map((url, j) => (async () => {
         const res = await fetch('/api/images/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             productId: product.id,
             type: 'enhance',
-            originalImageUrl: pendingImages[i],
+            originalImageUrl: url,
             category: product.category,
             quality: enhanceQuality,
+            lane: j,
           }),
         });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || 'Image enhance failed');
         }
-        successCount++;
-        await fetchProduct();
-      } catch (err) {
-        failCount++;
-        console.error(`Image ${i + 1} enhance failed:`, err);
-      }
-      if (i < pendingImages.length - 1) {
+      })()));
+      results.forEach(r => {
+        if (r.status === 'fulfilled') successCount++;
+        else { failCount++; console.error('Image enhance failed:', r.reason); }
+      });
+      await fetchProduct();
+      if (i + LANE_COUNT < pendingImages.length) {
         await new Promise(r => setTimeout(r, 2000));
       }
     }
