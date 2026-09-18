@@ -99,7 +99,32 @@ export async function POST(request: NextRequest) {
         temperature,
       });
 
-      const v = validateTitle(parseTitleOutput(result));
+      let v = validateTitle(parseTitleOutput(result));
+      // 超长自动缩短：带反馈重新生成一次（模型数不准字数，重试比说教有效）
+      if (v.cleaned.length > 90 && platform === 'tiktok_ms') {
+        console.log(`[TITLE] ${platform} ${v.cleaned.length} 字符超长，自动缩短重试`);
+        const shortenPrompt = `The following Bahasa Melayu product title is ${v.cleaned.length} characters — TOO LONG.
+
+"${v.cleaned}"
+
+Rewrite it to at most 85 characters. Keep: the core product word at the start, the most important spec, and the English keyword at the end. REMOVE secondary feature slots first (battery/extra compatibility/one adjective). Output ONLY the shortened title.`;
+        try {
+          const r2 = await generateText({
+            prompt: shortenPrompt,
+            systemPrompt: systemPrompt,
+            maxTokens: 1000,
+            temperature: 0.4,
+          });
+          const v2 = validateTitle(parseTitleOutput(r2));
+          if (v2.cleaned.length <= 90 && v2.cleaned.length >= 40) v = v2;
+        } catch { /* 缩短失败时保留原标题 */ }
+        if (v.cleaned.length > 90) {
+          // 最后手段：按词边界硬截断到 90
+          const cut = v.cleaned.slice(0, 90);
+          v.cleaned = cut.slice(0, cut.lastIndexOf(' ') > 60 ? cut.lastIndexOf(' ') : 90).trim();
+          v.issues.push('已硬截断至 90 字符');
+        }
+      }
       if (v.issues.length) console.log(`[TITLE] ${platform} 校验: ${v.issues.join(' | ')}`);
       results[config.field] = v.cleaned;
     }
