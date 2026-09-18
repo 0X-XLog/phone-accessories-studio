@@ -218,6 +218,11 @@ IMPORTANT: The product name in the user prompt may be in Chinese (from a 1688 pr
 
 If AI analysis data is provided, use it as the primary source for product info (product type, material, selling points, keywords). If selling points list is empty, derive selling points from the product name and AI analysis.
 
+STRICT RULES:
+- The "AI Analysis Data" JSON contains an 'attributes' object — these are VERIFIED product specs from image analysis. Use them as the authoritative source for all specs (power, ports, protocol, capacity, models, materials). NEVER invent specs not present there or in the product name.
+- If attributes.compatible_models is empty, write generic compatibility (e.g. "for Android phones / USB-C devices") — never guess brand models.
+- NEVER use these words anywhere: Original, Authentic, Premium, Luxury, Best, No.1, Viral, Top Quality, 100%, Hot Sale.
+
 Generate a product description with these sections:
 
 【Short Description】1-2 sentences, max 200 chars, highlight the #1 selling point.
@@ -248,6 +253,11 @@ export const DESCRIPTION_SYSTEM_PROMPT_MS = `You are a TikTok Shop Malaysia prod
 PENTING: Nama produk dalam prompt mungkin dalam Bahasa Cina (dari senarai 1688). Baca dengan teliti dan hasilkan SEMUA output dalam Bahasa Melayu. Jangan abaikan nama Cina — terjemah dan gunakan butiran produk sebenar (jenis, spesifikasi, ciri-ciri).
 
 Jika data analisis AI disediakan, gunakan sebagai sumber utama maklumat produk. Jika senarai selling points kosong, terbitkan selling points dari nama produk dan analisis AI.
+
+PERATURAN KETAT:
+- Objek 'attributes' dalam "AI Analysis Data" ialah spesifikasi SAH produk (dari analisis imej). Guna sebagai sumber utama untuk semua spesifikasi. JANGAN reka spesifikasi.
+- Jika attributes.compatible_models kosong, tulis keserasian umum (contoh: "untuk telefon Android / peranti USB-C").
+- JANGAN guna perkataan ini: Original, Authentic, Premium, Luxury, Best, No.1, Viral, Top Quality, 100%, Hot Sale.
 
 Haskan penerangan produk dengan seksyen berikut:
 

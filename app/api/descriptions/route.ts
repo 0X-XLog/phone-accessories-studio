@@ -18,6 +18,7 @@ const DESC_LANG_PROMPTS: Record<string, string> = {
   th: DESCRIPTION_SYSTEM_PROMPT_TH,
 };
 import { updateProduct, createHistory, addProductCost } from '@/lib/db';
+import { stripBlacklistWords } from '@/lib/title-system';
 
 export async function POST(request: NextRequest) {
   const auth = await verifyAdmin(request);
@@ -62,14 +63,21 @@ export async function POST(request: NextRequest) {
     console.log('[DESC] result length:', result.length, '| first 200:', result.slice(0, 200));
 
     const parsed = parseDescriptionOutput(result);
-    const storeDesc = parsed.long || '';
+    // 营销词黑名单清洗（Original/Authentic/Premium 等侵权与违规词）
+    const shortClean = stripBlacklistWords(parsed.short || '');
+    const longClean = stripBlacklistWords(parsed.long || '');
+    const bulletsClean = (parsed.bullets || []).map(b => stripBlacklistWords(b).text);
+    if (shortClean.removed.length || longClean.removed.length) {
+      console.log('[DESC] 黑名单剔除:', [...new Set([...shortClean.removed, ...longClean.removed])].join(', '));
+    }
+    const storeDesc = longClean.text;
 
     const cost = getCost('description');
 
     updateProduct(productId, {
-      description_short: parsed.short || '',
+      description_short: shortClean.text,
       description_long: storeDesc,
-      description_bullets: parsed.bullets || [],
+      description_bullets: bulletsClean,
       description_specs: parsed.specs || {},
       description_faq: parsed.faq || [],
       status: 'generated',

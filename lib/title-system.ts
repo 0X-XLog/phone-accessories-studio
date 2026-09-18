@@ -58,6 +58,21 @@ export const TITLE_BLACKLIST: string[] = [
   'ready stock', 'cod', 'fast delivery',
 ];
 
+// 从任意文本中剔除黑名单词（描述/标题通用）
+export function stripBlacklistWords(text: string): { text: string; removed: string[] } {
+  let out = ' ' + text + ' ';
+  const removed: string[] = [];
+  const lower = out.toLowerCase();
+  for (const bad of TITLE_BLACKLIST) {
+    const re = new RegExp(`\\s${bad.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'gi');
+    if (re.test(lower)) {
+      out = out.replace(re, ' ');
+      removed.push(bad);
+    }
+  }
+  return { text: out.replace(/\s{2,}/g, ' ').trim(), removed };
+}
+
 export interface TitleValidation {
   cleaned: string;
   removed: string[];
