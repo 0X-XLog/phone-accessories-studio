@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
     const lastMileCny: number = Number(body.lastMileCny) || 0;      // 尾程运费 元/件（默认0：买家承担时不计入售价）
     const defaultWeightG: number = Number(body.defaultWeightG) || 200; // 默认包裹重量 g
     const rate: number = Number(body.rate) || 0.65;               // CNY→MYR 汇率
+    const defaultPrice: number = Number(body.defaultPrice) > 0 ? Number(body.defaultPrice) : 19.9; // 无成本价商品的兜底售价(MYR)
     // 平台扣点（占售价%）：佣金/交易手续费/增值税/提现/BCP活动
     const feePct: number = [body.platformPct ?? 8.46, body.txnPct ?? 3.78, body.vatPct ?? 10, body.withdrawPct ?? 1, body.bcpPct ?? 3.24]
       .reduce((sum, v) => sum + (Number(v) || 0), 0);
@@ -139,11 +140,13 @@ export async function POST(request: NextRequest) {
       row.getCell(20).value = 20;
       row.getCell(21).value = 15;
       row.getCell(22).value = 5;
-      // col23 零售价：有成本价则按定价模型反推，否则留空手填
+      // col23 零售价：有成本价按定价模型反推；无成本价用默认售价兜底（TikTok 空价格会报错）
       if ((product.cost_price || 0) > 0) {
         const firstLegCny = (defaultWeightG / 1000) * firstLegPerKg;
         const priceCny = (product.cost_price + firstLegCny + lastMileCny) / denominator;
         row.getCell(23).value = Math.round(priceCny * rate * 100) / 100;
+      } else {
+        row.getCell(23).value = defaultPrice;
       }
       row.getCell(24).value = product.stock ?? 99;  // 数量
       row.getCell(25).value = `PA-${product.id.slice(0, 8).toUpperCase()}`; // 商家 SKU

@@ -30,6 +30,7 @@ export default function BatchPage() {
   const [firstLegPerKg, setFirstLegPerKg] = useState('15');
   const [lastMileCny, setLastMileCny] = useState('0');
   const [defaultWeightG, setDefaultWeightG] = useState('200');
+  const [defaultPrice, setDefaultPrice] = useState('19.90');
 
   const load = async () => {
     setLoading(true);
@@ -68,6 +69,7 @@ export default function BatchPage() {
           rate: Number(rate), profitRate: Number(profitRate) / 100,
           firstLegPerKg: Number(firstLegPerKg), lastMileCny: Number(lastMileCny),
           defaultWeightG: Number(defaultWeightG),
+          defaultPrice: Number(defaultPrice),
         }),
       });
       if (!res.ok) {
@@ -185,6 +187,9 @@ export default function BatchPage() {
             <label className="text-gray-600">汇率:</label>
             <input type="number" step="0.01" min="0" value={rate}
               onChange={(e) => setRate(e.target.value)} className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
+            <label className="text-gray-600">无成本价默认售价RM:</label>
+            <input type="number" step="0.10" min="0" value={defaultPrice}
+              onChange={(e) => setDefaultPrice(e.target.value)} className="w-20 px-2 py-1.5 rounded-lg border border-gray-300 text-sm" />
           </div>
 
           {loading ? (
@@ -248,7 +253,7 @@ export default function BatchPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-800 leading-relaxed">
           <p className="font-medium mb-1">使用说明：</p>
           <p>1. 勾选商品导出官方模板 Excel（一行一个商品；主图+卖点图自动填入 9 格图集，全部为 R2 公开链接）</p>
-          <p>2. 零售价自动按「(成本+头程) ÷ (1−扣点26.48%−利润率) × 汇率」计算（尾程默认买家承担不计入；无成本价的商品留空手填）</p>
+          <p>2. 零售价自动按「(成本+头程) ÷ (1−扣点26.48%−利润率) × 汇率」计算；无成本价的商品填默认售价（可在上面改）</p>
           <p>3. TikTok 卖家中心 → 商品 → 批量导入 → 上传文件 → 系统生成草稿 → 逐个检查发布</p>
           <p>4. 拿到官方模板后发我一份，我把列名对齐成官方格式，直接上传即可</p>
         </div>
