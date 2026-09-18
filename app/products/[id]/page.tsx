@@ -567,7 +567,7 @@ export default function ProductDetailPage() {
     let failCount = 0;
 
     // 双车道并行：每车道走不同账号令牌（独立队列），吞吐约 2 倍
-    const LANE_COUNT = 2;
+    const LANE_COUNT = 3;
     for (let i = 0; i < pendingImages.length; i += LANE_COUNT) {
       const chunk = pendingImages.slice(i, i + LANE_COUNT);
       setImageProgress({ current: Math.min(i + LANE_COUNT, pendingImages.length), total: pendingImages.length });
