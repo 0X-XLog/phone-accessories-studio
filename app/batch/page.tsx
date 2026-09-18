@@ -23,6 +23,8 @@ export default function BatchPage() {
   const [useAiImages, setUseAiImages] = useState(true);
   const [includeSellingPoints, setIncludeSellingPoints] = useState(true);
   const [titleField, setTitleField] = useState('title_tiktok_en');
+  const [exportingDetail, setExportingDetail] = useState(false);
+  const [detailMsg, setDetailMsg] = useState('');
   const [rate, setRate] = useState('0.65');
   const [profitRate, setProfitRate] = useState('25');
   const [firstLegPerKg, setFirstLegPerKg] = useState('15');
@@ -84,6 +86,35 @@ export default function BatchPage() {
       setMsg('导出失败: ' + (e instanceof Error ? e.message : '未知错误'));
     } finally {
       setExporting(false);
+    }
+  };
+
+  const doExportDetailImages = async () => {
+    if (selected.size === 0) { setDetailMsg('请先勾选商品'); return; }
+    setExportingDetail(true);
+    setDetailMsg('');
+    try {
+      const res = await fetch('/api/tiktok/export-detail-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: [...selected], useAiImages }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `detail-images-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setDetailMsg(`✅ 详情图已打包（${selected.size} 个商品的文件夹）。解压后每个商品一个文件夹，发布时在卖家中心描述编辑器里逐张上传。`);
+    } catch (e) {
+      setDetailMsg('导出失败: ' + (e instanceof Error ? e.message : '未知错误'));
+    } finally {
+      setExportingDetail(false);
     }
   };
 
@@ -199,6 +230,19 @@ export default function BatchPage() {
             <FileSpreadsheet className="w-5 h-5" />
             {exporting ? '生成中…' : `导出 ${selected.size} 个商品 → TikTok 批量导入表 (.xlsx)`}
           </button>
+
+          {detailMsg && (
+            <div className="mt-4 px-4 py-3 rounded-lg text-sm bg-purple-50 text-purple-700 border border-purple-200">{detailMsg}</div>
+          )}
+          <button
+            onClick={doExportDetailImages}
+            disabled={exportingDetail || selected.size === 0}
+            className="mt-4 w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl p-4 flex items-center justify-center gap-2 font-medium transition-colors"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            {exportingDetail ? '打包中（按商品下载图片）…' : `导出 ${selected.size} 个商品 → 详情图 ZIP（人工上传用）`}
+          </button>
+          <p className="text-xs text-gray-500 mt-2">按商品分文件夹打包详情图（勾选 AI 增强图时优先增强版），发布商品时解压对应文件夹逐张上传到描述区。</p>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-800 leading-relaxed">
