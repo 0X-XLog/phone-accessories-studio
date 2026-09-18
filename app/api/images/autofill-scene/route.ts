@@ -43,9 +43,18 @@ export async function POST(request: NextRequest) {
     const baseImages = product.original_images || [];
     const sourceUrl = baseImages[0] || (product.original_image_sources || [])[0];
     if (!sourceUrl) return NextResponse.json({ error: '商品没有主图，无法生成场景图' }, { status: 400 });
-    const srcRes = await fetch(sourceUrl, { signal: AbortSignal.timeout(30000) });
-    if (!srcRes.ok) throw new Error(`源图下载失败 ${srcRes.status}`);
-    const imageBuffer = Buffer.from(await srcRes.arrayBuffer());
+    let imageBuffer: Buffer | null = null;
+    for (let att = 1; att <= 3 && !imageBuffer; att++) {
+      try {
+        const srcRes = await fetch(sourceUrl, { signal: AbortSignal.timeout(30000) });
+        if (!srcRes.ok) throw new Error(`HTTP ${srcRes.status}`);
+        imageBuffer = Buffer.from(await srcRes.arrayBuffer());
+      } catch (e) {
+        if (att === 3) throw new Error(`源图下载失败(3次): ${String(e).slice(0, 80)}`);
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+    if (!imageBuffer) throw new Error('源图下载失败');
 
     // 场景提示词：优先类目词库，否则通用场景模板
     const productType = (product.ai_analysis as Record<string, unknown>)?.productType as string || product.name;

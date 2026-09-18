@@ -25,6 +25,10 @@ function isRetryableError(err: Error): boolean {
     msg.includes('do_request_failed') ||
     msg.includes('upstream error') ||
     msg.includes('timeout') ||
+    msg.includes('fetch failed') ||
+    msg.includes('terminated') ||
+    msg.includes('ECONNRESET') ||
+    msg.includes('socket hang up') ||
     msg.includes('500') ||
     msg.includes('502') ||
     msg.includes('503') ||
