@@ -25,6 +25,8 @@ export default function BatchPage() {
   const [titleField, setTitleField] = useState('title_tiktok_en');
   const [exportingDetail, setExportingDetail] = useState(false);
   const [detailMsg, setDetailMsg] = useState('');
+  const [fillingScenes, setFillingScenes] = useState(false);
+  const [sceneMsg, setSceneMsg] = useState('');
   const [rate, setRate] = useState('0.65');
   const [profitRate, setProfitRate] = useState('25');
   const [firstLegPerKg, setFirstLegPerKg] = useState('15');
@@ -89,6 +91,31 @@ export default function BatchPage() {
     } finally {
       setExporting(false);
     }
+  };
+
+  const doFillScenes = async () => {
+    if (selected.size === 0) { setSceneMsg('请先勾选商品'); return; }
+    setFillingScenes(true);
+    setSceneMsg(`正在为 ${selected.size} 个商品补齐场景图（每张约 30~60 秒，请勿关闭页面）…`);
+    const summary: string[] = [];
+    for (const pid of [...selected]) {
+      const p = products.find(x => x.id === pid);
+      try {
+        const res = await fetch('/api/images/autofill-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: pid, quality: 'low' }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        summary.push(`${(p?.name || pid).slice(0, 20)}: +${data.generated} 张${data.note ? `（${data.note}）` : ''}`);
+      } catch (e) {
+        summary.push(`${(p?.name || pid).slice(0, 20)}: ❌ ${e instanceof Error ? e.message : '失败'}`);
+      }
+    }
+    setFillingScenes(false);
+    setSceneMsg('补图结果：' + summary.join(' | '));
+    load();
   };
 
   const doExportDetailImages = async () => {
@@ -235,6 +262,18 @@ export default function BatchPage() {
             <FileSpreadsheet className="w-5 h-5" />
             {exporting ? '生成中…' : `导出 ${selected.size} 个商品 → TikTok 批量导入表 (.xlsx)`}
           </button>
+
+          <button
+            onClick={doFillScenes}
+            disabled={fillingScenes || selected.size === 0}
+            className="mt-4 w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl p-4 flex items-center justify-center gap-2 font-medium transition-colors"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            {fillingScenes ? '生成场景图中（每张 30~60 秒）…' : `自动补齐场景图（图集不足 9 张时 AI 生成使用场景图）`}
+          </button>
+          {sceneMsg && (
+            <div className="mt-3 px-4 py-3 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">{sceneMsg}</div>
+          )}
 
           {detailMsg && (
             <div className="mt-4 px-4 py-3 rounded-lg text-sm bg-purple-50 text-purple-700 border border-purple-200">{detailMsg}</div>
